@@ -32,6 +32,7 @@ from app.modules.webhook.models import ProcessedWebhookEvent
 from app.modules.otp.models import OTPCode
 from app.modules.cycle.models import CycleAssignment, DelegationRequest, SwapRequest
 from app.modules.notification.models import Notification
+from app.modules.chat.models import ChatMessage
 
 # add your model's MetaData object here
 # for 'autogenerate' support

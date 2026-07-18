@@ -7,6 +7,7 @@ from app.modules.membership.models import Membership
 from app.modules.transaction.models import WalletLedgerEntry, GroupLedgerEntry
 from app.common.enums import WalletLedgerEntryType, GroupLedgerEntryType, MembershipStatus, GroupStatus
 from app.modules.cycle.models import CycleAssignment, DelegationRequest, SwapRequest
+from app.modules.chat.service import post_system_message
 from app.modules.notification.models import Notification
 from app.modules.user.models import User
 
@@ -183,6 +184,8 @@ async def evaluate_payout_for_group(db: AsyncSession, group: Group):
             type="payout_processed"
         )
         db.add(admin_notif)
+        
+    await post_system_message(db, group.id, f"A payout of ₦{payout_amount:,.2f} was successfully sent for cycle {current_cycle}!")
         
     # Send email in the background
     from app.services.email import send_payout_received_email

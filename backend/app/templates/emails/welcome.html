@@ -1,0 +1,16 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Welcome to AjoPay{% endblock %}
+
+{% block content %}
+<p>Welcome to AjoPay, {{ to_name }}!</p>
+
+<p>Your account is ready. Your personal wallet has been created — fund it by transferring to your reserved account number in the app.</p>
+
+<p>Next steps:</p>
+<ul>
+    <li>Set up your 4-digit transaction PIN</li>
+    <li>Add your payout bank account</li>
+    <li>Join or create an Ajo group</li>
+</ul>
+{% endblock %}

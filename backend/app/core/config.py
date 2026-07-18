@@ -4,6 +4,9 @@ from pydantic import model_validator
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AjoPay Backend"
     
+    # Other settings
+    GEMINI_API_KEY: str = ""
+    
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost/ajopay"
     

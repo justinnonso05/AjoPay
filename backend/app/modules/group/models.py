@@ -38,3 +38,13 @@ class Group(Base, UUIDMixin, TimestampMixin):
     
     next_payout_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     payout_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True)
+
+
+class ReminderTracking(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "reminder_tracking"
+
+    group_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    cycle_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    reminder_type: Mapped[str] = mapped_column(String(50), nullable=False) # e.g. "T-2", "daily"
+    last_sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

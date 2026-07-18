@@ -1,18 +1,24 @@
+import logging
 from brevo import AsyncBrevo
 from brevo.transactional_emails import (
     SendTransacEmailRequestSender,
     SendTransacEmailRequestToItem,
 )
 from app.core.config import settings
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+import os
 
+logger = logging.getLogger(__name__)
+
+# Setup Jinja2 Environment
+template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
+env = Environment(
+    loader=FileSystemLoader(template_dir),
+    autoescape=select_autoescape(['html', 'xml'])
+)
 
 def _get_brevo_client():
     return AsyncBrevo(api_key=settings.BREVO_API_KEY)
-
-
-import logging
-
-logger = logging.getLogger(__name__)
 
 async def send_email(to_email: str, to_name: str, subject: str, html_content: str) -> bool:
     """
@@ -46,130 +52,101 @@ async def send_email(to_email: str, to_name: str, subject: str, html_content: st
         return False
 
 
-
 # ---------------------------------------------------------------------------
 # Email templates
 # ---------------------------------------------------------------------------
 
 async def send_otp_email(to_email: str, to_name: str, otp_code: str, reason: str) -> bool:
-    """Send a one-time PIN for sensitive actions (PIN reset, payout bank change)."""
-    subject = f"Your AjoPay verification code"
-    html = f"""
-    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-      <h2 style="color: #1a1a2e;">Your AjoPay Code</h2>
-      <p>Hi {to_name},</p>
-      <p>You requested a verification code to <strong>{reason}</strong>.</p>
-      <div style="background: #f4f4f4; border-radius: 8px; padding: 24px; text-align: center; margin: 24px 0;">
-        <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1a1a2e;">{otp_code}</span>
-      </div>
-      <p>This code expires in <strong>{settings.OTP_EXPIRE_MINUTES} minutes</strong>.</p>
-      <p style="color: #888; font-size: 13px;">
-        If you didn't request this, please ignore this email and ensure your account is secure.
-      </p>
-      <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
-    </div>
-    """
-    return await send_email(to_email, to_name, subject, html)
+    template = env.get_template("emails/otp.html")
+    html = template.render(
+        to_name=to_name,
+        reason=reason,
+        otp_code=otp_code,
+        expire_minutes=settings.OTP_EXPIRE_MINUTES
+    )
+    return await send_email(to_email, to_name, "Your AjoPay verification code", html)
 
 
 async def send_welcome_email(to_email: str, to_name: str) -> bool:
-    """Welcome email sent after successful signup."""
-    subject = "Welcome to AjoPay 🎉"
-    html = f"""
-    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-      <h2 style="color: #1a1a2e;">Welcome to AjoPay, {to_name}!</h2>
-      <p>Your account is ready. Your personal wallet has been created — 
-         fund it by transferring to your reserved account number in the app.</p>
-      <p>Next steps:</p>
-      <ul>
-        <li>Set up your 4-digit transaction PIN</li>
-        <li>Add your payout bank account</li>
-        <li>Join or create an Ajo group</li>
-      </ul>
-      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
-    </div>
-    """
-    return await send_email(to_email, to_name, subject, html)
+    template = env.get_template("emails/welcome.html")
+    html = template.render(to_name=to_name)
+    return await send_email(to_email, to_name, "Welcome to AjoPay 🎉", html)
 
 
 async def send_contribution_confirmed_email(
     to_email: str, to_name: str, amount: float, group_name: str, cycle: int
 ) -> bool:
-    subject = f"Contribution confirmed — {group_name}"
-    html = f"""
-    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-      <h2 style="color: #1a1a2e;">Contribution Received ✅</h2>
-      <p>Hi {to_name},</p>
-      <p>Your contribution of <strong>₦{amount:,.0f}</strong> to <strong>{group_name}</strong> 
-         (Cycle {cycle}) has been confirmed.</p>
-      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
-    </div>
-    """
-    return await send_email(to_email, to_name, subject, html)
+    template = env.get_template("emails/contribution_confirmed.html")
+    html = template.render(
+        to_name=to_name,
+        amount=amount,
+        group_name=group_name,
+        cycle=cycle
+    )
+    return await send_email(to_email, to_name, f"Contribution confirmed — {group_name}", html)
 
 
 async def send_payout_received_email(
     to_email: str, to_name: str, amount: float, group_name: str
 ) -> bool:
-    subject = f"Payout received — {group_name} 🎉"
-    html = f"""
-    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-      <h2 style="color: #1a1a2e;">Your Payout is In! 🎉</h2>
-      <p>Hi {to_name},</p>
-      <p><strong>₦{amount:,.0f}</strong> from <strong>{group_name}</strong> has been added to your AjoPay wallet.</p>
-      <p>You can withdraw to your registered bank account from the app at any time.</p>
-      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
-    </div>
-    """
-    return await send_email(to_email, to_name, subject, html)
+    template = env.get_template("emails/payout_received.html")
+    html = template.render(
+        to_name=to_name,
+        amount=amount,
+        group_name=group_name
+    )
+    return await send_email(to_email, to_name, f"Payout received — {group_name} 🎉", html)
 
 
 async def send_payout_pending_auth_email(
     to_email: str, to_name: str, amount: float, group_name: str, cycle: int
 ) -> bool:
     """Notifies the admin that a disbursement is awaiting OTP authorization."""
-    subject = f"Action required: Approve payout for {group_name}"
-    html = f"""
-    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-      <h2 style="color: #e65c00;">Payout Awaiting Your Approval</h2>
-      <p>Hi {to_name},</p>
-      <p>A payout of <strong>₦{amount:,.0f}</strong> for <strong>{group_name}</strong> 
-         (Cycle {cycle}) is waiting for your authorization.</p>
-      <p>Check your Monnify-registered email for the OTP, then approve it from the AjoPay admin dashboard.</p>
-      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
-    </div>
+    template = env.get_template("emails/base.html")
+    content = f"""
+    <p>Hi {to_name},</p>
+    <p>A payout of <strong>₦{amount:,.0f}</strong> for <strong>{group_name}</strong> 
+       (Cycle {cycle}) is waiting for your authorization.</p>
+    <p>Check your Monnify-registered email for the OTP, then approve it from the AjoPay admin dashboard.</p>
     """
-    return await send_email(to_email, to_name, subject, html)
+    html = template.render()
+    html = html.replace("{% block content %}{% endblock %}", content)
+    return await send_email(to_email, to_name, f"Action required: Approve payout for {group_name}", html)
 
 async def send_group_invite_email(
     to_email: str, to_name: str, group_name: str, inviter_name: str
 ) -> bool:
     """Notifies a user that they have been invited to join a group."""
-    subject = f"You've been invited to join {group_name}"
-    html = f"""
-    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-      <h2 style="color: #1a1a2e;">You're Invited! 🎉</h2>
-      <p>Hi {to_name},</p>
-      <p><strong>{inviter_name}</strong> has invited you to join the Ajo group <strong>{group_name}</strong>.</p>
-      <p>Open the AjoPay app to review the group details and accept or reject this invitation.</p>
-      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
-    </div>
+    template = env.get_template("emails/base.html")
+    content = f"""
+    <p>Hi {to_name},</p>
+    <p><strong>{inviter_name}</strong> has invited you to join the Ajo group <strong>{group_name}</strong>.</p>
+    <p>Open the AjoPay app to review the group details and accept or reject this invitation.</p>
     """
-    return await send_email(to_email, to_name, subject, html)
+    html = template.render()
+    html = html.replace("{% block content %}{% endblock %}", content)
+    return await send_email(to_email, to_name, f"You've been invited to join {group_name}", html)
 
 async def send_group_join_approved_email(
     to_email: str, to_name: str, group_name: str
 ) -> bool:
     """Notifies a user that their request to join a group via invite code was approved."""
-    subject = f"Your request to join {group_name} was approved"
-    html = f"""
-    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
-      <h2 style="color: #1a1a2e;">Welcome to the Group!</h2>
-      <p>Hi {to_name},</p>
-      <p>The admin of <strong>{group_name}</strong> has approved your join request.</p>
-      <p>You are now a member of the group and can view the rotation and start making contributions.</p>
-      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
-    </div>
+    template = env.get_template("emails/base.html")
+    content = f"""
+    <p>Hi {to_name},</p>
+    <p>The admin of <strong>{group_name}</strong> has approved your join request.</p>
+    <p>You are now a member of the group and can view the rotation and start making contributions.</p>
     """
-    return await send_email(to_email, to_name, subject, html)
+    html = template.render()
+    html = html.replace("{% block content %}{% endblock %}", content)
+    return await send_email(to_email, to_name, f"Your request to join {group_name} was approved", html)
+
+async def send_kyc_completed_email(to_email: str, to_name: str) -> bool:
+    template = env.get_template("emails/kyc_completed.html")
+    html = template.render(to_name=to_name)
+    return await send_email(to_email, to_name, "KYC Completed", html)
+
+async def send_wallet_funded_email(to_email: str, to_name: str, amount: float) -> bool:
+    template = env.get_template("emails/wallet_funded.html")
+    html = template.render(to_name=to_name, amount=amount)
+    return await send_email(to_email, to_name, "Wallet Funded", html)

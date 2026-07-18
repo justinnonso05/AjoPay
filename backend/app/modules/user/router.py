@@ -281,3 +281,62 @@ async def get_my_groups(
         message="User groups fetched successfully",
         data=response_data
     )
+
+from app.modules.transaction.models import GroupLedgerEntry
+
+@router.get(
+    "/me/transactions/status/{payment_reference}",
+    response_model=BaseResponse[Any],
+    summary="Poll transaction status",
+)
+async def get_transaction_status(
+    payment_reference: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Poll the status of a Monnify transaction (wallet top-up or dynamic virtual account group payment).
+    Returns 'successful' if the webhook has arrived and processed, otherwise 'pending'.
+    """
+    wallet_res = await db.execute(
+        select(WalletLedgerEntry)
+        .where(WalletLedgerEntry.monnify_payment_reference == payment_reference)
+    )
+    if wallet_res.scalar_one_or_none():
+        return BaseResponse(success=True, message="Transaction successful", data={"status": "successful"})
+        
+    group_res = await db.execute(
+        select(GroupLedgerEntry)
+        .where(GroupLedgerEntry.monnify_payment_reference == payment_reference)
+    )
+    if group_res.scalar_one_or_none():
+        return BaseResponse(success=True, message="Transaction successful", data={"status": "successful"})
+        
+    return BaseResponse(success=True, message="Transaction pending", data={"status": "pending"})
+
+from app.modules.user.risk_service import calculate_user_risk_score
+from app.modules.user.schemas import UserResponse
+
+@router.post(
+    "/{user_id}/risk/recalculate",
+    response_model=BaseResponse[UserResponse],
+    summary="Recalculate User Risk Score",
+)
+async def recalculate_risk_score(
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Force a recalculation of a user's risk score and factors based on their contribution history.
+    Available to admin/demo accounts.
+    """
+    user = await calculate_user_risk_score(user_id, db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    return BaseResponse(
+        success=True,
+        message="Risk score recalculated",
+        data=user
+    )

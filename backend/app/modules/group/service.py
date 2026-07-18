@@ -15,6 +15,7 @@ import uuid
 
 from datetime import datetime, timezone
 from app.services.email import send_group_invite_email, send_group_join_approved_email
+from app.modules.chat.service import post_system_message
 
 def generate_invite_code(length: int = 6) -> str:
     """Generate a random alphanumeric invite code."""
@@ -136,6 +137,7 @@ async def start_group_service(admin_user: User, group_id: str, data: GroupStartR
     db.add(group)
     await db.commit()
     await db.refresh(group)
+    await post_system_message(db, group_id, "The group rotation has started. Cycle 1 begins now!")
     return group
 
 async def join_group_service(user: User, invite_code: str, db: AsyncSession) -> Group:
@@ -241,6 +243,7 @@ async def approve_join_request_service(admin_user: User, group_id: str, member_u
         group = group_result.scalar_one()
         
         await send_group_join_approved_email(member_user.email, member_user.first_name, group.name)
+        await post_system_message(db, group_id, f"{member_user.first_name} joined the group.")
     else:
         membership.status = MembershipStatus.REMOVED
         
@@ -306,6 +309,9 @@ async def pay_group_from_wallet_service(user: User, group_id: str, pin: str, db:
     if group.status != GroupStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="Group is not active")
         
+    if not group.started_at:
+        raise HTTPException(status_code=400, detail="Group has not started yet. Contributions are locked.")
+        
     # 3. Check membership
     mem_res = await db.execute(select(Membership).where(Membership.user_id == user.id, Membership.group_id == group_id))
     membership = mem_res.scalar_one_or_none()
@@ -361,6 +367,29 @@ async def pay_group_from_wallet_service(user: User, group_id: str, pin: str, db:
     
     await db.commit()
     await db.refresh(group)
+    
+    # Notifications and Messages
+    from app.modules.notification.models import Notification
+    from app.services.email import send_contribution_confirmed_email
+    import asyncio
+    
+    notif = Notification(
+        user_id=user.id,
+        title="Contribution Received",
+        message=f"Your contribution of ₦{amount:,.2f} for cycle {group.current_cycle_number} was successful.",
+        type="group_contribution"
+    )
+    db.add(notif)
+    await db.commit()
+    
+    await post_system_message(db, group_id, f"{user.first_name} contributed ₦{amount:,.2f} for cycle {group.current_cycle_number}.")
+    
+    asyncio.create_task(send_contribution_confirmed_email(user.email, user.first_name, amount, group.name, group.current_cycle_number))
+    
+    # Recalculate risk score asynchronously
+    from app.modules.user.risk_service import calculate_user_risk_score
+    asyncio.create_task(calculate_user_risk_score(user.id, db))
+    
     return group
 
 async def generate_direct_payment_service(user: User, group_id: str, db: AsyncSession):
@@ -372,6 +401,9 @@ async def generate_direct_payment_service(user: User, group_id: str, db: AsyncSe
         
     if group.status != GroupStatus.ACTIVE:
         raise HTTPException(status_code=400, detail="Group is not active")
+        
+    if not group.started_at:
+        raise HTTPException(status_code=400, detail="Group has not started yet. Contributions are locked.")
         
     # 2. Check membership
     mem_res = await db.execute(select(Membership).where(Membership.user_id == user.id, Membership.group_id == group_id))
@@ -474,6 +506,7 @@ async def respond_to_invite_service(user: User, invite_id: str, accept: bool, db
             status=MembershipStatus.ACTIVE
         )
         db.add(new_membership)
+        await post_system_message(db, invite.group_id, f"{user.first_name} joined the group.")
     else:
         invite.status = GroupInviteStatus.REJECTED
         

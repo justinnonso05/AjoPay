@@ -86,6 +86,32 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
             if group:
                 group.pool_balance = float(group.pool_balance) + amount
                 db.add(group)
+            
+            # User and Notification
+            user_res = await db.execute(select(User).where(User.id == user_id))
+            user = user_res.scalar_one_or_none()
+            if user and group:
+                from app.modules.notification.models import Notification
+                from app.services.email import send_contribution_confirmed_email
+                
+                notif = Notification(
+                    user_id=user.id,
+                    title="Contribution Received",
+                    message=f"Your direct contribution of ₦{amount:,.2f} for cycle {cycle_number} was successful.",
+                    type="group_contribution"
+                )
+                db.add(notif)
+                
+                import asyncio
+                asyncio.create_task(send_contribution_confirmed_email(user.email, user.first_name, amount, group.name, cycle_number))
+                
+                # We need a system message too
+                from app.modules.group.service import post_system_message
+                asyncio.create_task(post_system_message(db, group_id, f"{user.first_name} contributed ₦{amount:,.2f} for cycle {cycle_number}."))
+                
+                # Recalculate risk score
+                from app.modules.user.risk_service import calculate_user_risk_score
+                asyncio.create_task(calculate_user_risk_score(user.id, db))
     
     # Path A: Wallet Top-Up
     else:
@@ -110,6 +136,21 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
                 # Update user wallet balance
                 user.wallet_balance = float(user.wallet_balance) + amount
                 db.add(user)
+                
+                # Notifications
+                from app.modules.notification.models import Notification
+                from app.services.email import send_wallet_funded_email
+                import asyncio
+                
+                notif = Notification(
+                    user_id=user.id,
+                    title="Wallet Funded",
+                    message=f"Your wallet was topped up with ₦{amount:,.2f}.",
+                    type="wallet_topup"
+                )
+                db.add(notif)
+                
+                asyncio.create_task(send_wallet_funded_email(user.email, user.first_name, amount))
         else:
             logger.warning(f"Wallet Top-Up destination account number missing in webhook payload: {payload}")
                 

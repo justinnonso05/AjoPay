@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.core.database import get_db
 from app.common.schemas import BaseResponse
 from app.modules.user.models import User
+from app.modules.group.models import Group
 from app.core.security import get_current_user
 from .schemas import GroupResponse, GroupCreate, GroupUpdate, GroupStartRequest, JoinGroupRequest, PayFromWalletRequest, GroupMemberProfileResponse
 from .service import create_group_service, join_group_service, update_group_service, start_group_service, pay_group_from_wallet_service, generate_direct_payment_service, get_group_members_service
@@ -226,4 +228,43 @@ async def get_group_members(
         success=True,
         message="Group members retrieved successfully",
         data=members
+    )
+
+from app.services.ai import generate_reminder_copy
+
+@router.post("/{group_id}/members/{user_id}/generate-reminder", response_model=BaseResponse[str])
+async def generate_member_reminder(
+    group_id: str,
+    user_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Generate an AI-crafted reminder copy for a member to pay their upcoming Ajo contribution.
+    Requires admin privileges.
+    """
+    group_res = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_res.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    if group.admin_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only admin can generate reminders")
+        
+    member_res = await db.execute(select(User).where(User.id == user_id))
+    member = member_res.scalar_one_or_none()
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+        
+    copy = await generate_reminder_copy(
+        member_name=member.first_name,
+        group_name=group.name,
+        amount=float(group.contribution_amount),
+        cycle_number=group.current_cycle_number
+    )
+    
+    return BaseResponse(
+        success=True,
+        message="Reminder copy generated",
+        data=copy
     )

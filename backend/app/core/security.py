@@ -103,6 +103,23 @@ async def get_current_user(
         )
     return user
 
+async def verify_access_token_ws(token: str, db: AsyncSession):
+    """
+    Decodes token for WebSocket connections.
+    Returns User object if valid, None otherwise.
+    """
+    from app.modules.user.models import User
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        result = await db.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+        return user
+    except Exception:
+        return None
+
 
 # ---------------------------------------------------------------------------
 # Monnify Basic Auth header helper

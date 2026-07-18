@@ -1,0 +1,9 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Contribution Confirmed{% endblock %}
+
+{% block content %}
+<p>Hi {{ to_name }},</p>
+<p>Your contribution of <strong>₦{{ '{:,.2f}'.format(amount) }}</strong> to the group <strong>{{ group_name }}</strong> for cycle <strong>{{ cycle }}</strong> has been successfully received.</p>
+<p>Thank you for keeping the Ajo moving!</p>
+{% endblock %}

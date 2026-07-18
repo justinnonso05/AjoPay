@@ -66,6 +66,7 @@ from app.modules.auth.router import router as auth_router
 from app.modules.webhook.router import router as webhook_router
 from app.modules.cycle.router import router as cycle_router
 from app.modules.notification.router import router as notification_router
+from app.modules.chat.router import router as chat_router
 
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(group_router, prefix="/api/v1")
@@ -74,3 +75,4 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(webhook_router, prefix="/api/v1")
 app.include_router(cycle_router, prefix="/api/v1")
 app.include_router(notification_router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")

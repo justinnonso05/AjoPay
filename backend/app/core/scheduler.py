@@ -49,10 +49,30 @@ async def payout_job():
                 logger.error(f"Error evaluating payout for group {safe_group_id}: {e}", exc_info=True)
     logger.info(f"Automated payout job completed successfully. Processed {matched_count} matches.")
 
+from app.modules.group.reminder_service import evaluate_and_send_reminders
+
+async def reminder_job():
+    logger.info("Running automated reminder job...")
+    async with AsyncSessionLocal() as db:
+        from app.common.enums import GroupStatus
+        groups_res = await db.execute(
+            select(Group).where(Group.status == GroupStatus.ACTIVE)
+        )
+        groups = groups_res.scalars().all()
+        for group in groups:
+            try:
+                await evaluate_and_send_reminders(db, group)
+                await db.commit()
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Error evaluating reminders for group {group.id}: {e}", exc_info=True)
+    logger.info("Automated reminder job completed.")
+
 def start_scheduler():
     # Only start if enabled in env
     interval_minutes = getattr(settings, "SCHEDULER_INTERVAL_MINUTES", 5)
     scheduler.add_job(payout_job, IntervalTrigger(minutes=interval_minutes), id="payout_job", replace_existing=True)
+    scheduler.add_job(reminder_job, IntervalTrigger(minutes=interval_minutes), id="reminder_job", replace_existing=True)
     scheduler.start()
     logger.info(f"Scheduler started with {interval_minutes} minutes interval.")
 

@@ -1,0 +1,17 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Your AjoPay Code{% endblock %}
+
+{% block content %}
+<p>Hi {{ to_name }},</p>
+<p>You requested a verification code to <strong>{{ reason }}</strong>.</p>
+
+<div class="highlight-box">
+    <p class="highlight-text">{{ otp_code }}</p>
+</div>
+
+<p>This code expires in <strong>{{ expire_minutes }} minutes</strong>.</p>
+<p style="color: #888888; font-size: 13px;">
+    If you didn't request this, please ignore this email and ensure your account is secure.
+</p>
+{% endblock %}

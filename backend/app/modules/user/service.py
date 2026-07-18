@@ -62,8 +62,24 @@ async def mock_kyc_and_create_wallet(user: User, bvn: str, db: AsyncSession) -> 
         user.has_wallet = True
         
         db.add(user)
+        
+        # Add Notification and Email
+        from app.modules.notification.models import Notification
+        from app.services.email import send_kyc_completed_email
+        import asyncio
+        
+        notif = Notification(
+            user_id=user.id,
+            title="KYC Completed",
+            message="Your Personal Reserved Account is ready to receive funds.",
+            type="kyc_completed"
+        )
+        db.add(notif)
+        
         await db.commit()
         await db.refresh(user)
+        
+        asyncio.create_task(send_kyc_completed_email(user.email, user.first_name))
         
         return user
         

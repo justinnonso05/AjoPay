@@ -7,6 +7,7 @@ from app.modules.group.models import Group
 from app.modules.cycle.models import CycleAssignment, DelegationRequest, SwapRequest
 from app.modules.notification.models import Notification
 from app.core.security import verify_password
+from app.modules.chat.service import post_system_message
 
 async def initiate_delegation(db: AsyncSession, group: Group, cycle_number: int, user: User, to_member_id: str, pin: str) -> DelegationRequest:
     if not user.pin_hash or not verify_password(pin, user.pin_hash):
@@ -60,6 +61,7 @@ async def initiate_delegation(db: AsyncSession, group: Group, cycle_number: int,
             
         notif = Notification(user_id=to_member_id, title="Delegation Received", message=f"A payout for cycle {cycle_number} was delegated to you.", type="delegation_approved")
         db.add(notif)
+        await post_system_message(db, group.id, f"{user.first_name} delegated their cycle {cycle_number} payout.")
     else:
         admin_notif = Notification(user_id=group.admin_user_id, title="Delegation Request", message=f"User {user.first_name} requested a delegation.", type="delegation_request")
         db.add(admin_notif)
@@ -142,6 +144,7 @@ async def respond_swap(db: AsyncSession, group: Group, user: User, swap_id: str,
                 
             notif = Notification(user_id=swap.initiator_member_id, title="Swap Accepted", message=f"{user.first_name} accepted your swap request.", type="swap_accepted")
             db.add(notif)
+            await post_system_message(db, group.id, f"{user.first_name} and swap initiator swapped their cycles.")
         else:
             admin_notif = Notification(user_id=group.admin_user_id, title="Swap Approval Required", message="A swap request is pending approval.", type="swap_pending_admin")
             db.add(admin_notif)
@@ -191,6 +194,7 @@ async def approve_delegation(db: AsyncSession, group: Group, admin_user: User, d
         notif2 = Notification(user_id=req.to_member_id, title="Delegation Received", message=f"A payout for cycle {req.cycle_number} was delegated to you.", type="delegation_approved")
         db.add(notif1)
         db.add(notif2)
+        await post_system_message(db, group.id, f"A delegation was approved for cycle {req.cycle_number}.")
         
     await db.commit()
     await db.refresh(req)
@@ -228,6 +232,7 @@ async def approve_swap(db: AsyncSession, group: Group, admin_user: User, swap_id
         notif2 = Notification(user_id=req.target_member_id, title="Swap Approved", message="The admin approved the swap.", type="swap_accepted")
         db.add(notif1)
         db.add(notif2)
+        await post_system_message(db, group.id, "A cycle swap was approved.")
         
     await db.commit()
     await db.refresh(req)

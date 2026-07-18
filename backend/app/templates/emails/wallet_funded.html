@@ -1,0 +1,9 @@
+{% extends "emails/base.html" %}
+
+{% block title %}Wallet Funded{% endblock %}
+
+{% block content %}
+<p>Hi {{ to_name }},</p>
+<p>Your wallet has been successfully funded with <strong>₦{{ '{:,.2f}'.format(amount) }}</strong>.</p>
+<p>Your new wallet balance is ready to use for your Ajo contributions.</p>
+{% endblock %}
