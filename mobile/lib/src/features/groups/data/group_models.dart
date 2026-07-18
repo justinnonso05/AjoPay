@@ -256,35 +256,43 @@ class GroupMember {
   }
 }
 
-/// From `GET /groups/{id}/members/pending`. Note this endpoint returns a
-/// leaner shape than `GET /groups/{id}/members` — no first/last name or
-/// username, just the raw membership record. The UI has to fall back to
-/// showing a partial user id since there's no display name available.
+/// From `GET /groups/{id}/members/pending` — despite the leaner name, this
+/// actually returns the same `GroupMemberProfileResponse` shape as
+/// `GET /groups/{id}/members` (first/last name, username, `joined_at`, no
+/// `created_at`), per the OpenAPI spec.
 class PendingMembership {
   final String id;
   final String groupId;
   final String userId;
-  final String kycStatus;
   final String status;
-  final DateTime createdAt;
+  final String firstName;
+  final String lastName;
+  final String username;
+  final DateTime joinedAt;
 
   const PendingMembership({
     required this.id,
     required this.groupId,
     required this.userId,
-    required this.kycStatus,
     required this.status,
-    required this.createdAt,
+    required this.firstName,
+    required this.lastName,
+    required this.username,
+    required this.joinedAt,
   });
+
+  String get fullName => '$firstName $lastName'.trim();
 
   factory PendingMembership.fromJson(Map<String, dynamic> json) {
     return PendingMembership(
       id: json['id']?.toString() ?? '',
       groupId: json['group_id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
-      kycStatus: json['kyc_status']?.toString() ?? '',
       status: json['status']?.toString() ?? '',
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+      firstName: json['first_name']?.toString() ?? '',
+      lastName: json['last_name']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      joinedAt: DateTime.tryParse(json['joined_at']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }

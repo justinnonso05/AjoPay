@@ -570,11 +570,11 @@ class _AdminToolsCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Member request',
+                            pending.fullName.isNotEmpty ? pending.fullName : '@${pending.username}',
                             style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                           ),
                           Text(
-                            'Requested ${formatShortDate(pending.createdAt)}',
+                            'Requested ${formatShortDate(pending.joinedAt)}',
                             style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textMuted),
                           ),
                         ],

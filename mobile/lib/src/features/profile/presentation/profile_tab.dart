@@ -39,6 +39,7 @@ class ProfileTab extends ConsumerWidget {
     ref.invalidate(walletTransactionsControllerProvider);
     ref.invalidate(notificationsControllerProvider);
     ref.invalidate(groupInvitesControllerProvider);
+    ref.read(selectedTabIndexProvider.notifier).state = 0;
 
     if (context.mounted) context.goNamed(AppRoute.login.name);
   }

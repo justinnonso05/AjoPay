@@ -5,6 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../../routing/app_router.dart';
 import '../../../core/network/api_client.dart';
+import '../../groups/data/group_invites_controller.dart';
+import '../../home/data/home_controller.dart';
+import '../../notifications/data/notifications_repository.dart';
+import '../../wallet/data/wallet_controller.dart';
 import '../data/auth_repository.dart';
 import '../data/user_repository.dart';
 
@@ -59,6 +63,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final profile = await ref.read(userRepositoryProvider).getMe();
       ref.read(currentUserProvider.notifier).state = profile;
+
+      // These are all NotifierProviders that fetch once on first read and
+      // then cache — if any of them were already built earlier in this app
+      // session (e.g. a previous account's session before logout), they'd
+      // otherwise keep showing that stale data until the user manually
+      // pulls to refresh. Invalidating forces a fresh fetch for this account.
+      ref.invalidate(homeControllerProvider);
+      ref.invalidate(walletTransactionsControllerProvider);
+      ref.invalidate(notificationsControllerProvider);
+      ref.invalidate(groupInvitesControllerProvider);
 
       if (!mounted) return;
 
