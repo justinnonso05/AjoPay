@@ -37,6 +37,14 @@ class EnvConfig {
         : '/$endpointPath';
     return Uri.parse('$cleanBase$cleanPath');
   }
+
+  /// Same as [uri], but with the scheme swapped for its WebSocket
+  /// equivalent (https -> wss, http -> ws).
+  static Uri wsUri(String endpointPath) {
+    final httpUri = uri(endpointPath);
+    final wsScheme = httpUri.scheme == 'https' ? 'wss' : 'ws';
+    return httpUri.replace(scheme: wsScheme);
+  }
 }
 
 /// Riverpod provider for accessing the API base URL

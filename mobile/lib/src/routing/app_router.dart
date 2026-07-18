@@ -18,8 +18,12 @@ import '../features/auth/presentation/reset_pin/pin_reset_success_screen.dart';
 import '../features/groups/presentation/group_details_screen.dart';
 import '../features/groups/presentation/group_chat_screen.dart';
 import '../features/groups/presentation/contribution_screen.dart';
+import '../features/groups/presentation/direct_payment_screen.dart';
+import '../features/groups/data/group_models.dart';
 import '../features/groups/presentation/my_groups_screen.dart';
 import '../features/groups/presentation/my_invites_screen.dart';
+import '../features/wallet/presentation/payout_bank_screen.dart';
+import '../features/wallet/presentation/payout_bank_otp_screen.dart';
 import '../features/shell/presentation/main_shell.dart';
 
 enum AppRoute {
@@ -41,8 +45,11 @@ enum AppRoute {
   groupDetails,
   groupChat,
   contribution,
+  directPayment,
   myGroups,
   myInvites,
+  payoutBank,
+  payoutBankOtp,
   home,
 }
 
@@ -184,6 +191,11 @@ final goRouter = GoRouter(
       builder: (context, state) => ContributionScreen(groupId: state.extra as String),
     ),
     GoRoute(
+      path: '/group-direct-payment',
+      name: AppRoute.directPayment.name,
+      builder: (context, state) => DirectPaymentScreen(details: state.extra as DirectPaymentDetails),
+    ),
+    GoRoute(
       path: '/my-groups',
       name: AppRoute.myGroups.name,
       builder: (context, state) => const MyGroupsScreen(),
@@ -192,6 +204,24 @@ final goRouter = GoRouter(
       path: '/my-invites',
       name: AppRoute.myInvites.name,
       builder: (context, state) => const MyInvitesScreen(),
+    ),
+    GoRoute(
+      path: '/payout-bank',
+      name: AppRoute.payoutBank.name,
+      builder: (context, state) => const PayoutBankScreen(),
+    ),
+    GoRoute(
+      path: '/payout-bank-otp',
+      name: AppRoute.payoutBankOtp.name,
+      builder: (context, state) {
+        final args = state.extra as Map<String, String>;
+        return PayoutBankOtpScreen(
+          bankCode: args['bankCode']!,
+          bankName: args['bankName']!,
+          accountNumber: args['accountNumber']!,
+          accountName: args['accountName']!,
+        );
+      },
     ),
     GoRoute(
       path: '/home',

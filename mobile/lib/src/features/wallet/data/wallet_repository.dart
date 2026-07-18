@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/storage/secure_storage_service.dart';
+import '../../auth/data/user_profile.dart';
+import 'payout_bank_models.dart';
 import 'wallet_models.dart';
 
 class WalletRepository {
@@ -40,6 +42,75 @@ class WalletRepository {
       throw ApiException('Unexpected response from server.');
     }
     return WalletTransaction.fromJson(data);
+  }
+
+  /// Polls whether a Monnify payment has cleared. Returns `true` once the
+  /// webhook has landed and the transaction is `successful`, `false` while
+  /// still `pending`. Callers typically poll this on an interval after
+  /// initiating a wallet top-up or direct group payment.
+  Future<bool> isTransactionSuccessful(String paymentReference) async {
+    final response = await _apiClient.get(
+      ApiConstants.transactionStatus(paymentReference),
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      return data['status']?.toString() == 'successful';
+    }
+    return false;
+  }
+
+  // --- Payout bank setup ---
+
+  Future<List<Bank>> getBanks() async {
+    final response = await _apiClient.get(ApiConstants.banks, headers: await _secureStorage.authHeaders());
+    final data = response['data'];
+    if (data is! List) return [];
+    final banks = data.whereType<Map<String, dynamic>>().map(Bank.fromJson).toList();
+    banks.sort((a, b) => a.name.compareTo(b.name));
+    return banks;
+  }
+
+  /// "Name enquiry" — resolves the account holder's name so the user can
+  /// confirm it's really their account before saving it.
+  Future<BankValidationResult> validateBankAccount({required String accountNumber, required String bankCode}) async {
+    final response = await _apiClient.get(
+      ApiConstants.validateBankAccount(accountNumber, bankCode),
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    if (data is! Map<String, dynamic>) {
+      throw ApiException('Unexpected response from server.');
+    }
+    return BankValidationResult.fromJson(data);
+  }
+
+  /// Sends an OTP (to the user's registered email) required before
+  /// changing the payout bank.
+  Future<void> requestPayoutBankOtp() async {
+    await _apiClient.post(ApiConstants.requestPayoutBankOtp, headers: await _secureStorage.authHeaders());
+  }
+
+  /// Sets the payout bank. Throws [ApiException] on a bad/expired OTP.
+  Future<UserProfile> setPayoutBank({
+    required String bankAccountNumber,
+    required String bankCode,
+    required String otpCode,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.setPayoutBank,
+      body: {
+        'bank_account_number': bankAccountNumber,
+        'bank_code': bankCode,
+        'otp_code': otpCode,
+      },
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    if (data is! Map<String, dynamic>) {
+      throw ApiException('Unexpected response from server.');
+    }
+    return UserProfile.fromJson(data);
   }
 }
 

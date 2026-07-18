@@ -121,6 +121,7 @@ class GroupResponse {
   final DateTime? createdAt;
   final DateTime? startedAt;
   final DateTime? nextPayoutDate;
+  final DateTime? updatedAt;
 
   const GroupResponse({
     required this.id,
@@ -140,6 +141,7 @@ class GroupResponse {
     required this.createdAt,
     required this.startedAt,
     required this.nextPayoutDate,
+    required this.updatedAt,
   });
 
   factory GroupResponse.fromJson(Map<String, dynamic> json) {
@@ -161,6 +163,7 @@ class GroupResponse {
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? ''),
       startedAt: DateTime.tryParse(json['started_at']?.toString() ?? ''),
       nextPayoutDate: DateTime.tryParse(json['next_payout_date']?.toString() ?? ''),
+      updatedAt: DateTime.tryParse(json['updated_at']?.toString() ?? ''),
     );
   }
 
@@ -357,6 +360,51 @@ class GroupInvite {
       status: json['status']?.toString() ?? '',
       resolvedAt: DateTime.tryParse(json['resolved_at']?.toString() ?? ''),
       createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+}
+
+/// A one-time direct payment (virtual account + hosted checkout link) for
+/// a single contribution, generated via `generate-direct-payment`. The
+/// virtual account and checkout link both expire after
+/// [accountDurationSeconds] (currently 40 minutes / 2400s).
+class DirectPaymentDetails {
+  final String paymentReference;
+  final String transactionReference;
+  final String checkoutUrl;
+  final double amount;
+  final String accountNumber;
+  final String bankName;
+  final String bankCode;
+  final String accountName;
+  final DateTime expiresOn;
+  final int accountDurationSeconds;
+
+  const DirectPaymentDetails({
+    required this.paymentReference,
+    required this.transactionReference,
+    required this.checkoutUrl,
+    required this.amount,
+    required this.accountNumber,
+    required this.bankName,
+    required this.bankCode,
+    required this.accountName,
+    required this.expiresOn,
+    required this.accountDurationSeconds,
+  });
+
+  factory DirectPaymentDetails.fromJson(Map<String, dynamic> json) {
+    return DirectPaymentDetails(
+      paymentReference: json['paymentReference']?.toString() ?? '',
+      transactionReference: json['transactionReference']?.toString() ?? '',
+      checkoutUrl: json['checkoutUrl']?.toString() ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      accountNumber: json['accountNumber']?.toString() ?? '',
+      bankName: json['bankName']?.toString() ?? '',
+      bankCode: json['bankCode']?.toString() ?? '',
+      accountName: json['accountName']?.toString() ?? '',
+      expiresOn: DateTime.tryParse(json['expiresOn']?.toString() ?? '') ?? DateTime.now(),
+      accountDurationSeconds: (json['accountDurationSeconds'] as num?)?.toInt() ?? 0,
     );
   }
 }

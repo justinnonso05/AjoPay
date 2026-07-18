@@ -79,6 +79,22 @@ class GroupRepository {
     return _parseGroup(response);
   }
 
+  /// Generates a one-time virtual account + checkout link for paying the
+  /// current contribution directly (bank transfer / card), as an
+  /// alternative to paying from the in-app wallet balance. Expires after
+  /// `accountDurationSeconds` (currently 40 minutes).
+  Future<DirectPaymentDetails> generateDirectPayment(String groupId) async {
+    final response = await _apiClient.post(
+      ApiConstants.generateDirectPayment(groupId),
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    if (data is! Map<String, dynamic>) {
+      throw ApiException('Unexpected response from server.');
+    }
+    return DirectPaymentDetails.fromJson(data);
+  }
+
   // --- Admin actions ---
 
   Future<List<PendingMembership>> getPendingMembers(String groupId) async {

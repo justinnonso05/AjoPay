@@ -339,64 +339,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         const Spacer(),
                         const SizedBox(height: 24),
 
-                        // Social Sign Up Divider
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: Colors.grey[200])),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Text(
-                                'Or Sign up with',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 12,
-                                  color: Colors.grey[400],
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: Colors.grey[200])),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Social Buttons Row
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            _buildSocialButton(
-                              iconWidget: Image.network(
-                                'https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg',
-                                width: 24,
-                                height: 24,
-                                errorBuilder: (context, error, stackTrace) => Text(
-                                  'G',
-                                  style: GoogleFonts.spaceGrotesk(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 20,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            _buildSocialButton(
-                              iconWidget: const Icon(
-                                Icons.apple,
-                                color: Colors.black,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            _buildSocialButton(
-                              iconWidget: const Icon(
-                                Icons.facebook,
-                                color: Color(0xFF1877F2),
-                                size: 24,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 24),
 
                         // Agreement Notice
                         Align(
@@ -539,25 +481,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
   }
 
-  Widget _buildSocialButton({required Widget iconWidget}) {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: const Color(0xFFF3F4F6), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Center(child: iconWidget),
-    );
-  }
 }
 
 // Custom widget to style Checkbox nicely

@@ -15,9 +15,19 @@ class WalletTransaction {
     required this.createdAt,
   });
 
+  /// Whether this entry adds money to the wallet (shown as `+`) vs. removes
+  /// it (shown as `-`). The backend doesn't expose a signed amount or an
+  /// explicit direction field, so this infers it from `type` — kept broad
+  /// on purpose since we don't have a confirmed enum of every value the
+  /// backend can send (e.g. "topup", "wallet_topup", "deposit" all plausibly
+  /// mean the same thing).
   bool get isCredit {
-    final t = type.toLowerCase();
-    return t.contains('deposit') || t.contains('payout') || t.contains('refund') || t.contains('credit');
+    final t = type.toLowerCase().replaceAll('_', '').replaceAll('-', '');
+    const creditKeywords = ['deposit', 'topup', 'payout', 'refund', 'credit', 'received', 'reversal'];
+    const debitKeywords = ['withdraw', 'contribution', 'debit', 'payment'];
+
+    if (debitKeywords.any(t.contains)) return false;
+    return creditKeywords.any(t.contains);
   }
 
   factory WalletTransaction.fromJson(Map<String, dynamic> json) {

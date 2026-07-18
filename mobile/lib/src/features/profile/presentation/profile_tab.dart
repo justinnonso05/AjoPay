@@ -68,6 +68,12 @@ class ProfileTab extends ConsumerWidget {
               _SettingsRow(icon: Icons.qr_code_rounded, label: 'Virtual Account', onTap: () => _goToWallet(context, ref)),
               _SettingsRow(icon: Icons.receipt_long_rounded, label: 'Transaction History', onTap: () => _goToWallet(context, ref)),
               _SettingsRow(icon: Icons.arrow_upward_rounded, label: 'Withdraw Funds', onTap: () => _goToWallet(context, ref)),
+              _SettingsRow(
+                icon: Icons.account_balance_rounded,
+                label: 'Payout Bank',
+                trailing: profile?.payoutBankAccountNumber != null ? 'Set' : 'Not set',
+                onTap: () => context.pushNamed(AppRoute.payoutBank.name),
+              ),
             ],
           ),
           const SizedBox(height: 20),

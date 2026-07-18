@@ -13,6 +13,7 @@ import '../../auth/data/user_repository.dart';
 import '../../home/data/home_controller.dart';
 import '../../shell/data/shell_tab_provider.dart';
 import '../../wallet/data/wallet_controller.dart';
+import '../data/contribution_status.dart';
 import '../data/group_models.dart';
 import '../data/group_repository.dart';
 
@@ -29,6 +30,7 @@ class _ContributionScreenState extends ConsumerState<ContributionScreen> {
   GroupResponse? _group;
   bool _isLoading = true;
   bool _isPaying = false;
+  bool _isGeneratingDirectPayment = false;
   String? _error;
 
   @override
@@ -44,6 +46,7 @@ class _ContributionScreenState extends ConsumerState<ContributionScreen> {
     });
     try {
       final group = await ref.read(groupRepositoryProvider).getGroup(widget.groupId);
+      await ref.read(walletTransactionsControllerProvider.notifier).refresh();
       setState(() {
         _group = group;
         _isLoading = false;
@@ -54,6 +57,12 @@ class _ContributionScreenState extends ConsumerState<ContributionScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  bool get _hasPaidThisRound {
+    final group = _group;
+    if (group == null) return false;
+    return hasPaidCurrentRound(group, ref.read(walletTransactionsControllerProvider).items);
   }
 
   Future<void> _payFromWallet() async {
@@ -92,6 +101,20 @@ class _ContributionScreenState extends ConsumerState<ContributionScreen> {
     }
   }
 
+  Future<void> _payByBankTransfer() async {
+    setState(() => _isGeneratingDirectPayment = true);
+    try {
+      final details = await ref.read(groupRepositoryProvider).generateDirectPayment(widget.groupId);
+      if (!mounted) return;
+      context.pushNamed(AppRoute.directPayment.name, extra: details);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.darkGreen));
+    } finally {
+      if (mounted) setState(() => _isGeneratingDirectPayment = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileControllerProvider).profile;
@@ -117,7 +140,9 @@ class _ContributionScreenState extends ConsumerState<ContributionScreen> {
 
   Widget _buildContent(double balance) {
     final group = _group!;
+    final isGroupActive = group.status.toLowerCase() == 'active';
     final canPay = balance >= group.contributionAmount;
+    final hasPaid = _hasPaidThisRound;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -142,20 +167,60 @@ class _ContributionScreenState extends ConsumerState<ContributionScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), boxShadow: cardShadow(opacity: 0.03)),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Wallet balance', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-                Text('₦${formatAmount(balance)}', style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-              ],
+          if (hasPaid) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.paleGreen, borderRadius: BorderRadius.circular(AppRadius.lg)),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: AppColors.accentGreen, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "You've already contributed for this round. No need to pay again.",
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.darkGreen, fontWeight: FontWeight.w600, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ] else if (!isGroupActive) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.paleGreen, borderRadius: BorderRadius.circular(AppRadius.lg)),
+              child: Row(
+                children: [
+                  const Icon(Icons.hourglass_empty_rounded, color: AppColors.accentGreen, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      "This group hasn't started yet. The admin needs to start the rotation before contributions can be made.",
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.darkGreen, fontWeight: FontWeight.w600, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.lg), boxShadow: cardShadow(opacity: 0.03)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Wallet balance', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                  Text('₦${formatAmount(balance)}', style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                ],
+              ),
+            ),
+          ],
           const Spacer(),
-          if (canPay)
+          if (hasPaid || !isGroupActive) ...[
+            const SizedBox.shrink(),
+          ] else if (canPay) ...[
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -172,8 +237,24 @@ class _ContributionScreenState extends ConsumerState<ContributionScreen> {
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.darkGreen))
                     : Text('Pay from Wallet', style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold)),
               ),
-            )
-          else ...[
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton(
+                onPressed: _isGeneratingDirectPayment ? null : _payByBankTransfer,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.darkGreen,
+                  side: const BorderSide(color: AppColors.darkGreen, width: 1.2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                ),
+                child: _isGeneratingDirectPayment
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.darkGreen))
+                    : Text('Pay by Bank Transfer', style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ] else ...[
             Text(
               "You don't have enough in your wallet for this contribution yet.",
               style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary),
@@ -183,17 +264,34 @@ class _ContributionScreenState extends ConsumerState<ContributionScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
+                onPressed: _isGeneratingDirectPayment ? null : _payByBankTransfer,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandGreen,
+                  foregroundColor: AppColors.darkGreen,
+                  disabledBackgroundColor: AppColors.brandGreen,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                ),
+                child: _isGeneratingDirectPayment
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.darkGreen))
+                    : Text('Pay by Bank Transfer', style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: OutlinedButton(
                 onPressed: () {
                   ref.read(selectedTabIndexProvider.notifier).state = 1;
                   context.goNamed(AppRoute.home.name);
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandGreen,
+                style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.darkGreen,
-                  elevation: 0,
+                  side: const BorderSide(color: AppColors.darkGreen, width: 1.2),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                 ),
-                child: Text('Fund Wallet', style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold)),
+                child: Text('Fund Wallet Instead', style: GoogleFonts.spaceGrotesk(fontSize: 15, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

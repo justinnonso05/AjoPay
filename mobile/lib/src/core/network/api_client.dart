@@ -64,6 +64,40 @@ class ApiClient {
     return _decode(response);
   }
 
+  /// For the rare endpoint that returns a bare JSON array instead of the
+  /// usual `{success, message, data}` envelope (e.g. chat history).
+  Future<List<dynamic>> getList(String path, {Map<String, String>? headers}) async {
+    final uri = EnvConfig.uri(path);
+    late final http.Response response;
+    try {
+      response = await _client
+          .get(uri, headers: {..._defaultHeaders, ...?headers})
+          .timeout(const Duration(seconds: 20));
+    } on SocketException {
+      throw ApiException('Unable to reach the server. Check your connection and try again.');
+    } on Exception {
+      throw ApiException('Unable to reach the server. Check your connection and try again.');
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.body.isEmpty) return const [];
+      final decoded = jsonDecode(response.body);
+      return decoded is List ? decoded : const [];
+    }
+
+    Map<String, dynamic> json = const {};
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) json = decoded;
+    } catch (_) {
+      // Non-JSON body; fall through with an empty map.
+    }
+    throw ApiException(
+      _extractErrorMessage(json) ?? 'Something went wrong (${response.statusCode}).',
+      statusCode: response.statusCode,
+    );
+  }
+
   Future<Map<String, dynamic>> patch(String path, {Map<String, dynamic>? body, Map<String, String>? headers}) async {
     final uri = EnvConfig.uri(path);
     late final http.Response response;

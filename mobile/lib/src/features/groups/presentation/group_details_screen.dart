@@ -11,6 +11,8 @@ import '../../../core/widgets/skeleton_loader.dart';
 import '../../../core/widgets/status_pill.dart';
 import '../../../routing/app_router.dart';
 import '../../auth/data/user_repository.dart';
+import '../../wallet/data/wallet_controller.dart';
+import '../data/contribution_status.dart';
 import '../data/group_models.dart';
 import '../data/group_repository.dart';
 import 'widgets/edit_group_sheet.dart';
@@ -182,7 +184,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     if (code == null) return;
     Clipboard.setData(ClipboardData(text: 'Join my AjoPay group with code $code'));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Invite message copied — paste it anywhere to share'), backgroundColor: AppColors.darkGreen),
+      const SnackBar(content: Text('Invite message copied. Paste it anywhere to share.'), backgroundColor: AppColors.darkGreen),
     );
   }
 
@@ -311,6 +313,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     final group = _group!;
     final admin = _members.where((m) => m.isAdmin).toList();
     final isCurrentUserAdmin = _isCurrentUserAdmin;
+    final hasPaid = hasPaidCurrentRound(group, ref.watch(walletTransactionsControllerProvider).items);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
@@ -327,6 +330,10 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
         Row(
           children: [
             StatusPill(label: group.status, tone: group.status == 'active' ? PillTone.success : PillTone.neutral),
+            if (group.status == 'active' && hasPaid) ...[
+              const SizedBox(width: 8),
+              const StatusPill(label: 'Paid this round', tone: PillTone.success),
+            ],
             if (isCurrentUserAdmin) ...[
               const SizedBox(width: 8),
               const StatusPill(label: "You're the Admin", tone: PillTone.info),
@@ -406,14 +413,25 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
           width: double.infinity,
           height: 50,
           child: ElevatedButton(
-            onPressed: () => context.pushNamed(AppRoute.contribution.name, extra: widget.groupId),
+            onPressed: group.status == 'active' && !hasPaid
+                ? () => context.pushNamed(AppRoute.contribution.name, extra: widget.groupId)
+                : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.brandGreen,
               foregroundColor: AppColors.darkGreen,
+              disabledBackgroundColor: AppColors.brandGreen.withValues(alpha: 0.4),
+              disabledForegroundColor: AppColors.darkGreen.withValues(alpha: 0.6),
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
             ),
-            child: Text('Contribute', style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold)),
+            child: Text(
+              group.status != 'active'
+                  ? 'Contribute (group not started)'
+                  : hasPaid
+                      ? 'Already Contributed'
+                      : 'Contribute',
+              style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold, fontSize: group.status == 'active' && !hasPaid ? 15 : 13),
+            ),
           ),
         ),
         const SizedBox(height: 12),

@@ -31,12 +31,24 @@ class ApiConstants {
   static String get walletTransactions => '$apiPrefix/users/me/wallet/transactions';
   static String get walletWithdraw => '$apiPrefix/users/me/wallet/withdraw';
 
+  // Transaction status polling (checks whether a Monnify webhook — wallet
+  // top-up or dynamic virtual account group payment — has landed yet)
+  static String transactionStatus(String paymentReference) => '$apiPrefix/users/me/transactions/status/$paymentReference';
+
+  // Payout bank endpoints
+  static String get banks => '$apiPrefix/users/banks';
+  static String validateBankAccount(String accountNumber, String bankCode) =>
+      '$apiPrefix/users/banks/validate?account_number=$accountNumber&bank_code=$bankCode';
+  static String get requestPayoutBankOtp => '$apiPrefix/users/me/payout-bank/request-otp';
+  static String get setPayoutBank => '$apiPrefix/users/me/payout-bank';
+
   // Notification endpoints
   static String get notifications => '$apiPrefix/notifications';
   static String get markNotificationsRead => '$apiPrefix/notifications/mark-read';
 
   // Group action endpoints
   static String payFromWallet(String groupId) => '$apiPrefix/groups/$groupId/pay-from-wallet';
+  static String generateDirectPayment(String groupId) => '$apiPrefix/groups/$groupId/generate-direct-payment';
 
   // Group admin endpoints
   static String pendingMembers(String groupId) => '$apiPrefix/groups/$groupId/members/pending';
@@ -49,4 +61,9 @@ class ApiConstants {
   static String sendInvite(String groupId) => '$apiPrefix/groups/$groupId/invites';
   static String get myInvites => '$apiPrefix/groups/me/invites';
   static String respondInvite(String inviteId, bool accept) => '$apiPrefix/groups/invites/$inviteId/respond?accept=$accept';
+
+  // Group chat endpoints
+  static String chatHistory(String groupId, {int limit = 50, int offset = 0}) =>
+      '$apiPrefix/groups/$groupId/chat?limit=$limit&offset=$offset';
+  static String chatWebSocket(String groupId, String token) => '$apiPrefix/groups/$groupId/ws?token=$token';
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
@@ -11,6 +12,7 @@ import '../../../core/widgets/pin_entry_sheet.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/skeleton_loader.dart';
 import '../../../core/widgets/success_bottom_sheet.dart';
+import '../../../routing/app_router.dart';
 import '../../auth/data/user_profile.dart';
 import '../../auth/data/user_repository.dart';
 import '../data/wallet_controller.dart';
@@ -30,6 +32,24 @@ class _WalletTabState extends ConsumerState<WalletTab> {
   Future<void> _handleWithdraw() async {
     final profile = ref.read(userProfileControllerProvider).profile;
     if (profile == null) return;
+
+    if (profile.payoutBankAccountNumber == null) {
+      final shouldSetUp = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Set up a payout bank first'),
+          content: const Text('Withdrawals need a bank account on file. This only takes a minute to set up.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Set Up')),
+          ],
+        ),
+      );
+      if (shouldSetUp == true && mounted) {
+        context.pushNamed(AppRoute.payoutBank.name);
+      }
+      return;
+    }
 
     final amountController = TextEditingController();
     final amount = await showModalBottomSheet<double>(
@@ -148,6 +168,7 @@ class _WalletTabState extends ConsumerState<WalletTab> {
                 balance: double.tryParse(profile.walletBalance) ?? 0,
                 isBusy: _isWithdrawing,
                 onWithdraw: _handleWithdraw,
+                profile: profile,
               ),
             const SizedBox(height: 24),
             if (profile?.personalReservedAccountNumber != null) ...[
@@ -174,8 +195,9 @@ class _BalanceCard extends StatelessWidget {
   final double balance;
   final bool isBusy;
   final VoidCallback onWithdraw;
+  final UserProfile profile;
 
-  const _BalanceCard({required this.balance, required this.isBusy, required this.onWithdraw});
+  const _BalanceCard({required this.balance, required this.isBusy, required this.onWithdraw, required this.profile});
 
   @override
   Widget build(BuildContext context) {
@@ -196,7 +218,7 @@ class _BalanceCard extends StatelessWidget {
           const SizedBox(height: 22),
           Row(
             children: [
-              Expanded(child: _actionButton('Add Money', Icons.add_rounded, () => _showAddMoneyHint(context))),
+              Expanded(child: _actionButton('Add Money', Icons.add_rounded, () => _showAddMoneySheet(context))),
               const SizedBox(width: 10),
               Expanded(child: _actionButton('Withdraw', Icons.arrow_upward_rounded, isBusy ? null : onWithdraw)),
               const SizedBox(width: 10),
@@ -208,9 +230,87 @@ class _BalanceCard extends StatelessWidget {
     );
   }
 
-  void _showAddMoneyHint(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Transfer to your virtual account below to fund your wallet'), backgroundColor: AppColors.darkGreen),
+  void _showAddMoneySheet(BuildContext context) {
+    final bank = profile.personalReservedAccountBank;
+    final number = profile.personalReservedAccountNumber;
+    final name = profile.personalReservedAccountName;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(sheetContext).padding.bottom + 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Add Money', style: GoogleFonts.spaceGrotesk(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                IconButton(onPressed: () => Navigator.pop(sheetContext), icon: const Icon(Icons.close, color: Colors.grey)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Transfer any amount to this account. It lands in your wallet automatically once the bank confirms it.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 24),
+            if (number == null)
+              Text('No virtual account on file yet.', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textMuted))
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(color: AppColors.paleGreen, borderRadius: BorderRadius.circular(AppRadius.lg)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(bank ?? '—', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(number, style: GoogleFonts.spaceGrotesk(fontSize: 24, fontWeight: FontWeight.bold, color: AppColors.textPrimary, letterSpacing: 1)),
+                        IconButton(
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: number));
+                            ScaffoldMessenger.of(sheetContext).showSnackBar(
+                              const SnackBar(content: Text('Account number copied'), backgroundColor: AppColors.darkGreen),
+                            );
+                          },
+                          icon: const Icon(Icons.copy_rounded, color: AppColors.accentGreen),
+                        ),
+                      ],
+                    ),
+                    if (name != null) ...[
+                      const SizedBox(height: 2),
+                      Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted)),
+                    ],
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'This is your personal account. Money sent here always goes to your AjoPay wallet, not a specific group.',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textMuted, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -290,7 +390,7 @@ class _FundingMethods extends StatelessWidget {
         _methodTile(
           icon: Icons.account_balance_rounded,
           title: 'Fund wallet via bank transfer',
-          subtitle: 'Send money to your personal virtual account above — it lands in your wallet automatically.',
+          subtitle: 'Send money to your personal virtual account above. It lands in your wallet automatically.',
         ),
         const SizedBox(height: 10),
         _methodTile(
