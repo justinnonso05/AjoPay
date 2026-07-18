@@ -26,10 +26,12 @@ from app.common.models import Base
 # Import all models to ensure they are registered with Base.metadata
 from app.modules.user.models import User
 from app.modules.group.models import Group
-from app.modules.membership.models import Membership
-from app.modules.transaction.models import Transaction
+from app.modules.membership.models import Membership, GroupInvite
+from app.modules.transaction.models import WalletLedgerEntry, GroupLedgerEntry
 from app.modules.webhook.models import ProcessedWebhookEvent
 from app.modules.otp.models import OTPCode
+from app.modules.cycle.models import CycleAssignment, DelegationRequest, SwapRequest
+from app.modules.notification.models import Notification
 
 # add your model's MetaData object here
 # for 'autogenerate' support

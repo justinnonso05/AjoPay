@@ -6,9 +6,15 @@ from fastapi import HTTPException, status
 
 from app.modules.user.models import User
 from app.modules.group.models import Group
-from app.modules.membership.models import Membership
-from app.modules.group.schemas import GroupCreate
-from app.common.enums import GroupStatus, MembershipStatus, KYCStatus
+from app.modules.membership.models import Membership, GroupInvite
+from app.modules.group.schemas import GroupCreate, GroupUpdate, GroupStartRequest
+from app.common.enums import GroupStatus, MembershipStatus, KYCStatus, GroupInviteStatus, WalletLedgerEntryType, GroupLedgerEntryType
+from app.modules.transaction.models import WalletLedgerEntry, GroupLedgerEntry
+from app.modules.notification.models import Notification
+import uuid
+
+from datetime import datetime, timezone
+from app.services.email import send_group_invite_email, send_group_join_approved_email
 
 def generate_invite_code(length: int = 6) -> str:
     """Generate a random alphanumeric invite code."""
@@ -27,16 +33,16 @@ async def create_group_service(user: User, data: GroupCreate, db: AsyncSession) 
         payout_day_of_week=data.payout_day_of_week,
         payout_day_of_month=data.payout_day_of_month,
         payout_month=data.payout_month,
-        payout_day_override=data.payout_day_override,
-        quorum_percent=data.quorum_percent,
-        shortfall_policy=data.shortfall_policy,
+        payout_time=data.payout_time,
+        quorum_percent=100,
         requires_approval_for_delegate=data.requires_approval_for_delegate,
         requires_approval_for_swap=data.requires_approval_for_swap,
         invite_code=generate_invite_code(),
         invite_code_active=True,
         pool_balance=0.00,
         member_cap=data.member_cap,
-        status=GroupStatus.ACTIVE
+        current_cycle_number=0,
+        status=GroupStatus.GATHERING
     )
     db.add(new_group)
     
@@ -58,10 +64,91 @@ async def create_group_service(user: User, data: GroupCreate, db: AsyncSession) 
 
     return new_group
 
+async def update_group_service(admin_user: User, group_id: str, data: GroupUpdate, db: AsyncSession) -> Group:
+    await _verify_admin(admin_user.id, group_id, db)
+    
+    result = await db.execute(select(Group).where(Group.id == group_id))
+    group = result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+        
+    update_data = data.model_dump(exclude_unset=True)
+    
+    # If the group is already ACTIVE, block changing financial/cadence details
+    if group.status != GroupStatus.GATHERING:
+        forbidden_fields = {'contribution_amount', 'cycle_frequency', 'payout_day_of_week', 'payout_day_of_month', 'payout_month', 'payout_time'}
+        if any(field in update_data for field in forbidden_fields):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot modify financial or cadence settings after the group has started."
+            )
+            
+    for key, value in update_data.items():
+        setattr(group, key, value)
+        
+    db.add(group)
+    await db.commit()
+    await db.refresh(group)
+    return group
+
+async def start_group_service(admin_user: User, group_id: str, data: GroupStartRequest, db: AsyncSession) -> Group:
+    import json
+    await _verify_admin(admin_user.id, group_id, db)
+    
+    result = await db.execute(select(Group).where(Group.id == group_id))
+    group = result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+        
+    if group.status != GroupStatus.GATHERING:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group is already started or completed")
+        
+    # Get all active members
+    mem_result = await db.execute(select(Membership.user_id).where(Membership.group_id == group_id, Membership.status == MembershipStatus.ACTIVE))
+    active_member_ids = mem_result.scalars().all()
+    
+    if len(active_member_ids) < 2:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Need at least 2 members to start rotation")
+        
+    # Generate rotation order
+    if data.manual_order:
+        # Validate that all provided ids are active members and there are no duplicates/omissions
+        if set(data.manual_order) != set(active_member_ids):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Manual order must include exactly all active members")
+        order = data.manual_order
+    elif data.randomize:
+        order = list(active_member_ids)
+        random.shuffle(order)
+    else:
+        # Default to join order (which is how they are returned by default query, or we can sort by joined_at, but we'll just use the fetched list)
+        order = list(active_member_ids)
+        
+    group.rotation_order = json.dumps(order)
+    group.status = GroupStatus.ACTIVE
+    group.started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    group.current_cycle_number = 1
+    group.current_rotation_index = 0
+    
+    from app.modules.cycle.service import calculate_next_payout_date
+    now_utc = datetime.now(timezone.utc)
+    group.next_payout_date = calculate_next_payout_date(group, now_utc)
+    
+    db.add(group)
+    await db.commit()
+    await db.refresh(group)
+    return group
+
 async def join_group_service(user: User, invite_code: str, db: AsyncSession) -> Group:
     """
     Allows a user to join a group using an invite code.
     """
+    # 0. Check KYC
+    if not user.kyc_status:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must complete KYC before joining a group"
+        )
+
     # 1. Find group by invite code
     result = await db.execute(
         select(Group).where(
@@ -111,9 +198,298 @@ async def join_group_service(user: User, invite_code: str, db: AsyncSession) -> 
         user_id=user.id,
         is_admin=False,
         kyc_status=KYCStatus.MOCKED_VERIFIED if user.kyc_status else KYCStatus.PENDING,
-        status=MembershipStatus.ACTIVE
+        status=MembershipStatus.PENDING_APPROVAL
     )
     db.add(new_membership)
     await db.commit()
     
+    return group
+
+async def _verify_admin(user_id: str, group_id: str, db: AsyncSession):
+    """Helper to check if a user is admin of a group."""
+    result = await db.execute(
+        select(Membership).where(
+            Membership.group_id == group_id,
+            Membership.user_id == user_id,
+            Membership.is_admin == True,
+            Membership.status == MembershipStatus.ACTIVE
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only group admins can perform this action")
+
+async def approve_join_request_service(admin_user: User, group_id: str, member_user_id: str, approve: bool, db: AsyncSession):
+    await _verify_admin(admin_user.id, group_id, db)
+    
+    result = await db.execute(
+        select(Membership).where(
+            Membership.group_id == group_id,
+            Membership.user_id == member_user_id,
+            Membership.status == MembershipStatus.PENDING_APPROVAL
+        )
+    )
+    membership = result.scalar_one_or_none()
+    if not membership:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending membership not found")
+        
+    if approve:
+        membership.status = MembershipStatus.ACTIVE
+        # Fetch user to send email
+        user_result = await db.execute(select(User).where(User.id == member_user_id))
+        member_user = user_result.scalar_one()
+        group_result = await db.execute(select(Group).where(Group.id == group_id))
+        group = group_result.scalar_one()
+        
+        await send_group_join_approved_email(member_user.email, member_user.first_name, group.name)
+    else:
+        membership.status = MembershipStatus.REMOVED
+        
+    db.add(membership)
+    await db.commit()
+
+async def send_targeted_invite_service(admin_user: User, group_id: str, email_or_username: str, db: AsyncSession):
+    await _verify_admin(admin_user.id, group_id, db)
+    
+    group_result = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_result.scalar_one()
+    
+    user_result = await db.execute(
+        select(User).where((User.email == email_or_username) | (User.username == email_or_username))
+    )
+    target_user = user_result.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        
+    # Check if already a member or pending
+    mem_result = await db.execute(
+        select(Membership).where(Membership.group_id == group_id, Membership.user_id == target_user.id)
+    )
+    if mem_result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is already a member or has a pending request")
+        
+    # Create invite
+    db_invite_res = await db.execute(select(GroupInvite).where(GroupInvite.group_id == group_id, GroupInvite.invited_user_id == target_user.id))
+    db_invite = db_invite_res.scalar_one_or_none()
+    
+    invite = GroupInvite(
+        group_id=group_id,
+        invited_user_id=target_user.id,
+        invited_by_user_id=admin_user.id,
+        status=GroupInviteStatus.PENDING
+    )
+    db.add(invite)
+    if db_invite:
+        db.delete(db_invite)
+        await db.commit()
+    
+    notif = Notification(user_id=target_user.id, title="Group Invite", message=f"You have been invited to join {group.name}.", type="group_invite")
+    db.add(notif)
+    
+    await send_group_invite_email(target_user.email, target_user.first_name, group.name, f"{admin_user.first_name} {admin_user.last_name}")
+    return invite
+
+async def pay_group_from_wallet_service(user: User, group_id: str, pin: str, db: AsyncSession):
+    import bcrypt
+    
+    # 1. Verify PIN
+    if not user.pin_hash:
+        raise HTTPException(status_code=400, detail="Transaction PIN not set")
+    if not bcrypt.checkpw(pin.encode(), user.pin_hash.encode()):
+        raise HTTPException(status_code=401, detail="Invalid Transaction PIN")
+        
+    # 2. Get Group
+    group_res = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_res.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    if group.status != GroupStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Group is not active")
+        
+    # 3. Check membership
+    mem_res = await db.execute(select(Membership).where(Membership.user_id == user.id, Membership.group_id == group_id))
+    membership = mem_res.scalar_one_or_none()
+    if not membership or membership.status != MembershipStatus.ACTIVE:
+        raise HTTPException(status_code=403, detail="You are not an active member of this group")
+        
+    # 4. Check Wallet Balance
+    amount = group.contribution_amount
+    if user.wallet_balance < amount:
+        raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+        
+    # 4.5 Check for duplicate payment in this cycle
+    existing_payment_res = await db.execute(
+        select(GroupLedgerEntry).where(
+            GroupLedgerEntry.group_id == group_id,
+            GroupLedgerEntry.member_id == user.id,
+            GroupLedgerEntry.cycle_number == group.current_cycle_number
+        )
+    )
+    if existing_payment_res.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"You have already contributed for cycle {group.current_cycle_number}")
+        
+    # 5. Execute Ledger Transfer
+    # Deduct from User
+    user.wallet_balance = float(user.wallet_balance) - float(amount)
+    db.add(user)
+    
+    # Add to Group
+    group.pool_balance = float(group.pool_balance) + float(amount)
+    db.add(group)
+    
+    # Ledger Entries
+    group_ledger = GroupLedgerEntry(
+        group_id=group.id,
+        type=GroupLedgerEntryType.CONTRIBUTION_WALLET,
+        amount=amount,
+        member_id=user.id,
+        cycle_number=group.current_cycle_number,
+        narration=f"Contribution from wallet for cycle {group.current_cycle_number}"
+    )
+    db.add(group_ledger)
+    await db.flush() # To get ID if needed
+    
+    wallet_ledger = WalletLedgerEntry(
+        user_id=user.id,
+        type=WalletLedgerEntryType.PAY_GROUP,
+        amount=-amount, # Debit
+        related_group_id=group.id,
+        related_contribution_id=group_ledger.id,
+        narration=f"Paid contribution to group {group.name}"
+    )
+    db.add(wallet_ledger)
+    
+    await db.commit()
+    await db.refresh(group)
+    return group
+
+async def generate_direct_payment_service(user: User, group_id: str, db: AsyncSession):
+    # 1. Get Group
+    group_res = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_res.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    if group.status != GroupStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Group is not active")
+        
+    # 2. Check membership
+    mem_res = await db.execute(select(Membership).where(Membership.user_id == user.id, Membership.group_id == group_id))
+    membership = mem_res.scalar_one_or_none()
+    if not membership or membership.status != MembershipStatus.ACTIVE:
+        raise HTTPException(status_code=403, detail="You are not an active member of this group")
+        
+    # 3. Check for duplicate payment in this cycle
+    existing_payment_res = await db.execute(
+        select(GroupLedgerEntry).where(
+            GroupLedgerEntry.group_id == group_id,
+            GroupLedgerEntry.member_id == user.id,
+            GroupLedgerEntry.cycle_number == group.current_cycle_number
+        )
+    )
+    if existing_payment_res.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"You have already contributed for cycle {group.current_cycle_number}")
+        
+    import time
+    from app.services.monnify import monnify_client
+    
+    # Format required by webhook: ajopay-direct_{group_id}_{cycle_number}_{user_id}_{timestamp}
+    ref = f"ajopay-direct_{group.id}_{group.current_cycle_number}_{user.id}_{int(time.time())}"
+    
+    # 4. Call Monnify Step 1: Initialize Transaction
+    try:
+        init_res = await monnify_client.initialize_transaction(
+            amount=group.contribution_amount,
+            customer_name=f"{user.first_name} {user.last_name}",
+            customer_email=user.email,
+            payment_reference=ref,
+            payment_description=f"AjoPay contribution - Group {group.name} cycle {group.current_cycle_number}"
+        )
+        transaction_ref = init_res.get("transactionReference")
+        checkout_url = init_res.get("checkoutUrl")
+        
+        # 5. Call Monnify Step 2: Get Dynamic Account
+        dva_res = await monnify_client.init_bank_transfer(transaction_ref)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to communicate with Monnify: {str(e)}")
+
+    # Return real details to the frontend
+    return {
+        "paymentReference": ref,
+        "transactionReference": transaction_ref,
+        "checkoutUrl": checkout_url,
+        "amount": group.contribution_amount,
+        "accountNumber": dva_res.get("accountNumber"),
+        "bankName": dva_res.get("bankName"),
+        "bankCode": dva_res.get("bankCode"),
+        "accountName": dva_res.get("accountName"),
+        "expiresOn": dva_res.get("expiresOn"),
+        "accountDurationSeconds": dva_res.get("accountDurationSeconds")
+    }
+
+async def get_group_members_service(group_id: str, db: AsyncSession):
+    # Join Membership and User
+    stmt = select(Membership, User).join(User, Membership.user_id == User.id).where(Membership.group_id == group_id)
+    result = await db.execute(stmt)
+    
+    members = []
+    for mem, usr in result.all():
+        members.append({
+            "id": mem.id,
+            "group_id": mem.group_id,
+            "user_id": mem.user_id,
+            "is_admin": mem.is_admin,
+            "status": mem.status,
+            "joined_at": mem.created_at,
+            "first_name": usr.first_name,
+            "last_name": usr.last_name,
+            "username": usr.username,
+            "risk_score": usr.risk_score,
+            "risk_factors": usr.risk_factors
+        })
+    return members
+
+async def respond_to_invite_service(user: User, invite_id: str, accept: bool, db: AsyncSession):
+    result = await db.execute(
+        select(GroupInvite).where(GroupInvite.id == invite_id, GroupInvite.invited_user_id == user.id, GroupInvite.status == GroupInviteStatus.PENDING)
+    )
+    invite = result.scalar_one_or_none()
+    if not invite:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found or already processed")
+        
+    if accept:
+        if not user.kyc_status:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You must complete KYC before accepting a group invite"
+            )
+            
+        invite.status = GroupInviteStatus.ACCEPTED
+        # Since admin invited them, they bypass approval
+        new_membership = Membership(
+            group_id=invite.group_id,
+            user_id=user.id,
+            is_admin=False,
+            kyc_status=KYCStatus.MOCKED_VERIFIED if user.kyc_status else KYCStatus.PENDING,
+            status=MembershipStatus.ACTIVE
+        )
+        db.add(new_membership)
+    else:
+        invite.status = GroupInviteStatus.REJECTED
+        
+    invite.resolved_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.add(invite)
+    await db.commit()
+    return invite
+
+async def rotate_invite_code_service(admin_user: User, group_id: str, db: AsyncSession):
+    await _verify_admin(admin_user.id, group_id, db)
+    
+    result = await db.execute(select(Group).where(Group.id == group_id))
+    group = result.scalar_one()
+    
+    group.invite_code = generate_invite_code()
+    db.add(group)
+    await db.commit()
+    await db.refresh(group)
     return group

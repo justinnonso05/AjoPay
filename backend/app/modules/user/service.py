@@ -133,3 +133,56 @@ async def get_banks_list() -> list:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Could not fetch banks list: {str(e)}"
         )
+
+from app.core.security import verify_password
+from app.modules.transaction.models import WalletLedgerEntry
+from app.common.enums import WalletLedgerEntryType
+
+async def withdraw_from_wallet(user: User, amount: float, pin: str, db: AsyncSession) -> WalletLedgerEntry:
+    # 1. Verify PIN
+    if not user.pin_hash:
+        raise HTTPException(status_code=400, detail="Transaction PIN not set")
+    if not verify_password(pin, user.pin_hash):
+        raise HTTPException(status_code=400, detail="Invalid Transaction PIN")
+        
+    # 2. Check balance
+    if float(user.wallet_balance) < amount:
+        raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+        
+    # 3. Check payout bank exists
+    if not user.payout_bank_account_number or not user.payout_bank_code:
+        raise HTTPException(status_code=400, detail="Payout bank account not set. Please set it first.")
+        
+    # 4. Initiate Monnify Transfer
+    import time
+    reference = f"ajopay-wd-{user.id}-{int(time.time())}"
+    try:
+        monnify_response = await monnify_client.initiate_transfer(
+            reference=reference,
+            amount=amount,
+            narration=f"AjoPay Withdrawal for {user.first_name}",
+            destination_bank_code=user.payout_bank_code,
+            destination_account_number=user.payout_bank_account_number,
+            destination_account_name=user.payout_account_name,
+            # We use default sandbox source or the user's reserved account if we were using a real wallet source
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to initiate Monnify transfer: {str(e)}")
+        
+    # 5. Record Ledger Entry
+    entry = WalletLedgerEntry(
+        user_id=user.id,
+        type=WalletLedgerEntryType.WITHDRAWAL,
+        amount=-amount,
+        monnify_transaction_reference=monnify_response.get("reference"),
+        narration="Wallet Withdrawal to Bank"
+    )
+    db.add(entry)
+    
+    # 6. Update user balance
+    user.wallet_balance = float(user.wallet_balance) - amount
+    db.add(user)
+    
+    await db.commit()
+    await db.refresh(entry)
+    return entry

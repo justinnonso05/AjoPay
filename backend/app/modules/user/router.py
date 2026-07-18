@@ -6,10 +6,43 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.common.schemas import BaseResponse
 from app.modules.user.models import User
-from .schemas import UserResponse, SetPayoutBankRequest, MockKycRequest
+from .schemas import UserResponse, SetPayoutBankRequest, MockKycRequest, UserSearchResponse
 from .service import request_bank_change_otp, set_payout_bank, get_banks_list, mock_kyc_and_create_wallet
+from sqlalchemy import select
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+@router.get(
+    "/search",
+    response_model=BaseResponse[UserSearchResponse],
+    summary="Search for a user by email or username",
+)
+async def search_user(
+    q: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Search for a user by exact email or username.
+    Returns their profile and risk score, so an admin can view details before sending an invite.
+    """
+    result = await db.execute(
+        select(User).where((User.email == q) | (User.username == q))
+    )
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+        
+    return BaseResponse(
+        success=True,
+        message="User found",
+        data=user
+    )
+
 
 
 @router.post(
@@ -151,4 +184,100 @@ async def list_banks():
         success=True,
         message="Banks fetched successfully",
         data=banks
+    )
+
+from app.modules.transaction.models import WalletLedgerEntry
+from .schemas import WalletLedgerEntryResponse
+from sqlalchemy import select
+
+@router.get(
+    "/me/wallet/transactions",
+    response_model=BaseResponse[list[WalletLedgerEntryResponse]],
+    summary="Get user's wallet transaction history",
+)
+async def get_wallet_transactions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(WalletLedgerEntry)
+        .where(WalletLedgerEntry.user_id == current_user.id)
+        .order_by(WalletLedgerEntry.created_at.desc())
+    )
+    transactions = result.scalars().all()
+    return BaseResponse(
+        success=True,
+        message="Wallet transactions fetched successfully",
+        data=transactions
+    )
+
+from .schemas import WithdrawRequest
+from .service import withdraw_from_wallet
+
+@router.post(
+    "/me/wallet/withdraw",
+    response_model=BaseResponse[WalletLedgerEntryResponse],
+    summary="Withdraw from wallet to payout bank",
+)
+async def withdraw_funds(
+    data: WithdrawRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Withdraw money from the personal wallet to the user's validated external payout bank.
+    Requires the user's Transaction PIN.
+    """
+    entry = await withdraw_from_wallet(current_user, data.amount, data.pin, db)
+    return BaseResponse(
+        success=True,
+        message=f"Withdrawal of NGN {data.amount} initiated successfully",
+        data=entry
+    )
+
+from app.modules.membership.models import Membership
+from app.modules.group.models import Group
+from .schemas import UserGroupMembershipResponse
+
+@router.get(
+    "/me/groups",
+    response_model=BaseResponse[list[UserGroupMembershipResponse]],
+    summary="Get user's groups",
+)
+async def get_my_groups(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get all groups the current user is a member of, along with their role and group details.
+    """
+    result = await db.execute(
+        select(Membership, Group)
+        .join(Group, Membership.group_id == Group.id)
+        .where(Membership.user_id == current_user.id)
+    )
+    
+    records = result.all()
+    response_data = []
+    
+    for mem, grp in records:
+        response_data.append(
+            UserGroupMembershipResponse(
+                membership_id=mem.id,
+                is_admin=mem.is_admin,
+                membership_status=mem.status,
+                joined_at=mem.created_at,
+                group_id=grp.id,
+                group_name=grp.name,
+                contribution_amount=grp.contribution_amount,
+                cycle_frequency=grp.cycle_frequency,
+                group_status=grp.status,
+                pool_balance=grp.pool_balance,
+            )
+        )
+        
+    return BaseResponse(
+        success=True,
+        message="User groups fetched successfully",
+        data=response_data
     )

@@ -1,4 +1,4 @@
-def calculate_risk_score(member_id: str) -> dict:
+def calculate_risk_score(user_id: str) -> dict:
     """
     Calculate the risk score based on:
     - Punctuality

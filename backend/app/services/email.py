@@ -141,3 +141,35 @@ async def send_payout_pending_auth_email(
     </div>
     """
     return await send_email(to_email, to_name, subject, html)
+
+async def send_group_invite_email(
+    to_email: str, to_name: str, group_name: str, inviter_name: str
+) -> bool:
+    """Notifies a user that they have been invited to join a group."""
+    subject = f"You've been invited to join {group_name}"
+    html = f"""
+    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
+      <h2 style="color: #1a1a2e;">You're Invited! 🎉</h2>
+      <p>Hi {to_name},</p>
+      <p><strong>{inviter_name}</strong> has invited you to join the Ajo group <strong>{group_name}</strong>.</p>
+      <p>Open the AjoPay app to review the group details and accept or reject this invitation.</p>
+      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
+    </div>
+    """
+    return await send_email(to_email, to_name, subject, html)
+
+async def send_group_join_approved_email(
+    to_email: str, to_name: str, group_name: str
+) -> bool:
+    """Notifies a user that their request to join a group via invite code was approved."""
+    subject = f"Your request to join {group_name} was approved"
+    html = f"""
+    <div style="font-family: sans-serif; max-width: 480px; margin: auto;">
+      <h2 style="color: #1a1a2e;">Welcome to the Group!</h2>
+      <p>Hi {to_name},</p>
+      <p>The admin of <strong>{group_name}</strong> has approved your join request.</p>
+      <p>You are now a member of the group and can view the rotation and start making contributions.</p>
+      <p style="color: #888; font-size: 12px;">AjoPay — Rotating savings, reimagined.</p>
+    </div>
+    """
+    return await send_email(to_email, to_name, subject, html)

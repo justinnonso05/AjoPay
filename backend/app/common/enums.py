@@ -1,6 +1,7 @@
 from enum import Enum
 
 class GroupStatus(str, Enum):
+    GATHERING = "gathering"
     ACTIVE = "active"
     PAUSED = "paused"
     COMPLETED = "completed"
@@ -17,8 +18,15 @@ class ShortfallPolicy(str, Enum):
 
 class MembershipStatus(str, Enum):
     INVITED = "invited"
+    PENDING_APPROVAL = "pending_approval"
     ACTIVE = "active"
     REMOVED = "removed"
+
+class GroupInviteStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
 
 class KYCStatus(str, Enum):
     PENDING = "pending"
@@ -33,16 +41,19 @@ class PayoutStatus(str, Enum):
     SUCCESS = "success"
     FAILED = "failed"
 
-class TransactionType(str, Enum):
-    WALLET_FUNDING = "wallet_funding"
-    GROUP_CONTRIBUTION = "group_contribution"
-    PAYOUT = "payout"
+class WalletLedgerEntryType(str, Enum):
+    TOPUP = "topup"
+    PAY_GROUP = "pay_group"
+    PAYOUT_RECEIVED = "payout_received"
+    RECEIVE_DELEGATION = "receive_delegation"
     WITHDRAWAL = "withdrawal"
+    CORRECTION = "correction"
 
-class TransactionStatus(str, Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
+class GroupLedgerEntryType(str, Enum):
+    CONTRIBUTION_WALLET = "contribution_wallet"
+    CONTRIBUTION_DIRECT = "contribution_direct"
+    PAYOUT = "payout"
+    CORRECTION = "correction"
 
 class SwapRequestStatus(str, Enum):
     PENDING = "pending"

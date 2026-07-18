@@ -3,12 +3,22 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from app.core.config import settings
 from app.common.schemas import BaseResponse
+from contextlib import asynccontextmanager
+from app.core.scheduler import start_scheduler, stop_scheduler
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    start_scheduler()
+    yield
+    stop_scheduler()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url="/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",
+    swagger_ui_parameters={"persistAuthorization": True},
+    lifespan=lifespan
 )
 
 @app.exception_handler(Exception)
@@ -54,9 +64,13 @@ from app.modules.group.router import router as group_router
 from app.modules.membership.router import router as membership_router
 from app.modules.auth.router import router as auth_router
 from app.modules.webhook.router import router as webhook_router
+from app.modules.cycle.router import router as cycle_router
+from app.modules.notification.router import router as notification_router
 
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(group_router, prefix="/api/v1")
 app.include_router(membership_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(webhook_router, prefix="/api/v1")
+app.include_router(cycle_router, prefix="/api/v1")
+app.include_router(notification_router, prefix="/api/v1")

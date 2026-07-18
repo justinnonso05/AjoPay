@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import String
+from datetime import datetime
 from app.common.models import Base, UUIDMixin, TimestampMixin
 
 class Membership(Base, UUIDMixin, TimestampMixin):
@@ -12,5 +13,13 @@ class Membership(Base, UUIDMixin, TimestampMixin):
     
     kyc_status: Mapped[str] = mapped_column(String(50), nullable=False) # Enum
     status: Mapped[str] = mapped_column(String(50), nullable=False) # Enum
+
+class GroupInvite(Base, UUIDMixin, TimestampMixin):
+    __tablename__ = "group_invites"
+
+    group_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    invited_user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    invited_by_user_id: Mapped[str] = mapped_column(String, nullable=False)
     
-    risk_score: Mapped[str] = mapped_column(String, nullable=True) # JSON serialized dict
+    status: Mapped[str] = mapped_column(String(50), nullable=False) # Enum
+    resolved_at: Mapped[datetime] = mapped_column(nullable=True)

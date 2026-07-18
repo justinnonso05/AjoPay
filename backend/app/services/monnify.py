@@ -148,6 +148,53 @@ class MonnifyClient:
         return body["responseBody"]
 
     # -----------------------------------------------------------------------
+    # Dynamic Virtual Accounts — Direct to Group (Path B)
+    # -----------------------------------------------------------------------
+
+    async def initialize_transaction(
+        self,
+        amount: float,
+        customer_name: str,
+        customer_email: str,
+        payment_reference: str,
+        payment_description: str,
+    ) -> dict:
+        """
+        Step 1 for DVA: Create transaction intent.
+        """
+        body = await self._make_request(
+            "POST",
+            "/api/v1/merchant/transactions/init-transaction",
+            json={
+                "amount": amount,
+                "customerName": customer_name,
+                "customerEmail": customer_email,
+                "paymentReference": payment_reference,
+                "paymentDescription": payment_description,
+                "currencyCode": "NGN",
+                "contractCode": self.contract_code,
+                "redirectUrl": "https://ajopay.app/contribute/confirm",
+                "paymentMethods": ["ACCOUNT_TRANSFER"]
+            },
+            timeout=30.0,
+        )
+        return body["responseBody"]
+
+    async def init_bank_transfer(self, transaction_reference: str) -> dict:
+        """
+        Step 2 for DVA: Get actual payable account details.
+        """
+        body = await self._make_request(
+            "POST",
+            "/api/v1/merchant/bank-transfer/init-payment",
+            json={
+                "transactionReference": transaction_reference
+            },
+            timeout=30.0,
+        )
+        return body["responseBody"]
+
+    # -----------------------------------------------------------------------
     # Disbursement — automatic payout to a rotation beneficiary
     # -----------------------------------------------------------------------
 
@@ -159,11 +206,13 @@ class MonnifyClient:
         destination_bank_code: str,
         destination_account_number: str,
         destination_account_name: str,
+        source_account_number: str = None,
     ) -> dict:
         """
         Initiates a Single Transfer (Disbursement) on Monnify.
         Expect status PENDING_AUTHORIZATION in sandbox (MFA is on by default).
         """
+        source_account = source_account_number or settings.MONNIFY_WALLET_ACCOUNT or "9999999999"
         body = await self._make_request(
             "POST",
             "/api/v2/disbursements/single",
@@ -175,6 +224,7 @@ class MonnifyClient:
                 "destinationAccountNumber": destination_account_number,
                 "destinationAccountName": destination_account_name,
                 "currency": "NGN",
+                "sourceAccountNumber": source_account,
             },
             timeout=30.0,
         )

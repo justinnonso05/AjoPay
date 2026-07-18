@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.types import String, Integer, Float
+from sqlalchemy.types import String, Integer, Float, DateTime, Time
+from datetime import datetime, time
+from typing import Optional
 from app.common.models import Base, UUIDMixin, TimestampMixin
 
 class Group(Base, UUIDMixin, TimestampMixin):
@@ -14,10 +16,8 @@ class Group(Base, UUIDMixin, TimestampMixin):
     payout_day_of_week: Mapped[int] = mapped_column(Integer, nullable=True)
     payout_day_of_month: Mapped[int] = mapped_column(Integer, nullable=True)
     payout_month: Mapped[int] = mapped_column(Integer, nullable=True)
-    payout_day_override: Mapped[int] = mapped_column(Integer, nullable=True)
     
-    quorum_percent: Mapped[int] = mapped_column(Integer, nullable=False)
-    shortfall_policy: Mapped[str] = mapped_column(String(50), nullable=False) # Enum as string
+    quorum_percent: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
     
     requires_approval_for_delegate: Mapped[bool] = mapped_column(default=True, nullable=False)
     requires_approval_for_swap: Mapped[bool] = mapped_column(default=True, nullable=False)
@@ -34,3 +34,7 @@ class Group(Base, UUIDMixin, TimestampMixin):
     current_cycle_number: Mapped[int] = mapped_column(Integer, default=1)
     
     status: Mapped[str] = mapped_column(String(50), nullable=False) # Enum as string
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    
+    next_payout_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    payout_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True)

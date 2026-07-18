@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # Bank code to use when creating reserved accounts (e.g. "232" for Sterling)
     MONNIFY_DEFAULT_PREFERRED_BANK: str = ""
 
+    # Scheduler Config
+    SCHEDULER_INTERVAL_MINUTES: int = 5
+
     # Email — Brevo (Sendinblue)
     BREVO_API_KEY: str = ""
     EMAIL_FROM_ADDRESS: str = "noreply@justinch.dev"
@@ -31,7 +34,10 @@ class Settings(BaseSettings):
     # OTP settings
     OTP_EXPIRE_MINUTES: int = 10  # OTPs expire after 10 minutes
     
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    # AI Integration
+    GEMINI_API_KEY: str = ""
+
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
     @model_validator(mode='after')
     def override_db_driver(self) -> 'Settings':

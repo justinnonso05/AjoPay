@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.types import String, Numeric, Boolean
+from sqlalchemy.types import String, Numeric, Boolean, Integer
 from typing import Optional
 from app.common.models import Base, UUIDMixin, TimestampMixin
 
@@ -32,3 +32,7 @@ class User(Base, UUIDMixin, TimestampMixin):
     payout_bank_account_number: Mapped[str] = mapped_column(String(50), nullable=True)
     payout_bank_code: Mapped[str] = mapped_column(String(10), nullable=True)
     payout_account_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    
+    # Risk Score
+    risk_score: Mapped[int] = mapped_column(Integer, default=50, nullable=False)
+    risk_factors: Mapped[Optional[str]] = mapped_column(String, nullable=True) # JSON serialized dict

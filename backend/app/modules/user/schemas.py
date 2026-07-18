@@ -67,3 +67,50 @@ class MockKycRequest(BaseModel):
             raise ValueError("BVN must be exactly 11 digits")
         return v
 
+class WalletLedgerEntryResponse(BaseModel):
+    id: str
+    user_id: str
+    type: str
+    amount: float
+    related_group_id: Optional[str] = None
+    related_contribution_id: Optional[str] = None
+    monnify_transaction_reference: Optional[str] = None
+    monnify_payment_reference: Optional[str] = None
+    narration: Optional[str] = None
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class WithdrawRequest(BaseModel):
+    amount: float
+    pin: str
+
+class UserGroupMembershipResponse(BaseModel):
+    # Membership info
+    membership_id: str
+    is_admin: bool
+    membership_status: str
+    joined_at: datetime
+    
+    # Group info
+    group_id: str
+    group_name: str
+    contribution_amount: float
+    cycle_frequency: str
+    group_status: str
+    pool_balance: float
+    
+    class Config:
+        from_attributes = True
+
+class UserSearchResponse(BaseModel):
+    id: str
+    username: str
+    first_name: str
+    last_name: str
+    risk_score: int
+    risk_factors: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
