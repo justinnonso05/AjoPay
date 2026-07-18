@@ -9,6 +9,39 @@ import 'user_profile.dart';
 /// can read `has_pin`, `kyc_status`, wallet balance, etc. without refetching.
 final currentUserProvider = StateProvider<UserProfile?>((ref) => null);
 
+/// From `GET /users/search` — an exact-match lookup by email or username,
+/// used to preview who an admin is about to invite before sending it.
+class UserSearchResult {
+  final String id;
+  final String username;
+  final String firstName;
+  final String lastName;
+  final int riskScore;
+  final String? riskFactors;
+
+  const UserSearchResult({
+    required this.id,
+    required this.username,
+    required this.firstName,
+    required this.lastName,
+    required this.riskScore,
+    this.riskFactors,
+  });
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory UserSearchResult.fromJson(Map<String, dynamic> json) {
+    return UserSearchResult(
+      id: json['id']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      firstName: json['first_name']?.toString() ?? '',
+      lastName: json['last_name']?.toString() ?? '',
+      riskScore: (json['risk_score'] as num?)?.toInt() ?? 0,
+      riskFactors: json['risk_factors']?.toString(),
+    );
+  }
+}
+
 class UserRepository {
   final ApiClient _apiClient;
   final SecureStorageService _secureStorage;
@@ -35,6 +68,23 @@ class UserRepository {
       headers: await _secureStorage.authHeaders(),
     );
     return _parseUser(response);
+  }
+
+  /// Looks up a user by exact email or username. Returns `null` if no user
+  /// matches (the backend 404s / errors for a non-match rather than
+  /// returning an empty result).
+  Future<UserSearchResult?> searchUser(String query) async {
+    try {
+      final response = await _apiClient.get(
+        ApiConstants.searchUser(query),
+        headers: await _secureStorage.authHeaders(),
+      );
+      final data = response['data'];
+      if (data is! Map<String, dynamic>) return null;
+      return UserSearchResult.fromJson(data);
+    } on ApiException {
+      return null;
+    }
   }
 
   UserProfile _parseUser(Map<String, dynamic> response) {

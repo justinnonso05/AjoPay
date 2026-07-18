@@ -27,6 +27,10 @@ class ApiConstants {
   static String get mockKycVerify => '$apiPrefix/users/me/kyc/mock-verify';
   static String get bankAccount => '$apiPrefix/members/bank-account';
 
+  // Search for a user by exact email or username — used to preview who
+  // you're inviting (name + risk score) before sending a direct invite.
+  static String searchUser(String query) => '$apiPrefix/users/search?q=${Uri.encodeQueryComponent(query)}';
+
   // Wallet endpoints
   static String get walletTransactions => '$apiPrefix/users/me/wallet/transactions';
   static String get walletWithdraw => '$apiPrefix/users/me/wallet/withdraw';
