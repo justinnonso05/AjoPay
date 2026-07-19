@@ -1,10 +1,11 @@
 "use client";
 
-import { Copy } from "lucide-react";
+import { Copy, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, ApiError, endpoints } from "@/lib/api";
 import { authHeaders } from "@/lib/auth";
 import { formatAmount, formatShortDate } from "@/lib/format";
+import { downloadReceiptPdf } from "@/lib/receipt-pdf";
 import type { TransactionReceipt } from "@/lib/types";
 import { Modal } from "./modal";
 import { StatusPill } from "./status-pill";
@@ -91,19 +92,28 @@ function ReceiptBody({ receipt }: { receipt: TransactionReceipt }) {
         {receipt.recipient_name && <Row label="To" value={receipt.recipient_name} />}
         {receipt.narration && <Row label="Narration" value={receipt.narration} />}
         {receipt.reference && (
-          <div className="flex items-center justify-between py-3">
-            <span className="text-xs font-semibold text-brand-dark/50">Reference</span>
+          <div className="flex items-center justify-between gap-3 py-3">
+            <span className="shrink-0 text-xs font-semibold text-brand-dark/50">Reference</span>
             <button
               type="button"
               onClick={() => navigator.clipboard.writeText(receipt.reference!)}
-              className="flex items-center gap-1.5 font-display text-sm font-bold text-brand-dark"
+              className="flex min-w-0 items-center gap-1.5 font-display text-sm font-bold text-brand-dark"
             >
-              {receipt.reference}
-              <Copy size={13} className="text-brand-dark/40" />
+              <span className="truncate">{receipt.reference}</span>
+              <Copy size={13} className="shrink-0 text-brand-dark/40" />
             </button>
           </div>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={() => downloadReceiptPdf(receipt)}
+        className="mt-5 flex w-full items-center justify-center gap-2 rounded-full border border-brand-dark/15 py-3 text-sm font-bold text-brand-dark transition-transform hover:scale-[1.01] active:scale-95"
+      >
+        <Download size={15} />
+        Download as PDF
+      </button>
     </div>
   );
 }

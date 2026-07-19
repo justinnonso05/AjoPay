@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../../../core/widgets/status_pill.dart';
+import '../../data/receipt_pdf.dart';
 import '../../data/wallet_models.dart';
 import '../../data/wallet_repository.dart';
 
@@ -35,6 +36,7 @@ class _TransactionReceiptSheetState extends ConsumerState<TransactionReceiptShee
   TransactionReceipt? _receipt;
   bool _isLoading = true;
   String? _error;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -70,6 +72,21 @@ class _TransactionReceiptSheetState extends ConsumerState<TransactionReceiptShee
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Reference copied', style: TextStyle(color: Colors.white)), backgroundColor: AppColors.darkGreen),
     );
+  }
+
+  Future<void> _downloadPdf() async {
+    if (_receipt == null || _isExporting) return;
+    setState(() => _isExporting = true);
+    try {
+      await shareReceiptPdf(_receipt!);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not generate the PDF: $e', style: const TextStyle(color: Colors.white)), backgroundColor: AppColors.darkGreen),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   @override
@@ -132,17 +149,27 @@ class _TransactionReceiptSheetState extends ConsumerState<TransactionReceiptShee
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Reference', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
-                      GestureDetector(
-                        onTap: () => _copyReference(receipt.reference!),
-                        child: Row(
-                          children: [
-                            Text(receipt.reference!, style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                            const SizedBox(width: 6),
-                            const Icon(Icons.copy_rounded, size: 14, color: AppColors.textMuted),
-                          ],
+                      const Spacer(),
+                      Flexible(
+                        child: GestureDetector(
+                          onTap: () => _copyReference(receipt.reference!),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  receipt.reference!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.copy_rounded, size: 14, color: AppColors.textMuted),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -150,6 +177,25 @@ class _TransactionReceiptSheetState extends ConsumerState<TransactionReceiptShee
                 ),
               ],
             ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: _isExporting ? null : _downloadPdf,
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.border),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            ),
+            icon: _isExporting
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textPrimary))
+                : const Icon(Icons.download_rounded, size: 18, color: AppColors.textPrimary),
+            label: Text(
+              _isExporting ? 'Preparing…' : 'Download as PDF',
+              style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            ),
           ),
         ),
       ],

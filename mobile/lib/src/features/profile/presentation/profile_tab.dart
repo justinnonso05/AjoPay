@@ -178,8 +178,20 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
   bool _isUploadingAvatar = false;
 
   Future<void> _pickAndUploadAvatar() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1024, imageQuality: 85);
+    XFile? picked;
+    try {
+      picked = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 1024, imageQuality: 85);
+    } catch (e) {
+      // Covers picker-level failures too (permission denial, plugin
+      // channel not yet registered after a hot reload, etc.) — previously
+      // these threw silently with zero feedback, which just looked like
+      // tapping the avatar did nothing.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open your photo library: $e', style: const TextStyle(color: Colors.white)), backgroundColor: AppColors.darkGreen),
+      );
+      return;
+    }
     if (picked == null || !mounted) return;
 
     setState(() => _isUploadingAvatar = true);
@@ -191,6 +203,11 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message, style: const TextStyle(color: Colors.white)), backgroundColor: AppColors.darkGreen));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not upload your photo: $e', style: const TextStyle(color: Colors.white)), backgroundColor: AppColors.darkGreen),
+      );
     } finally {
       if (mounted) setState(() => _isUploadingAvatar = false);
     }
