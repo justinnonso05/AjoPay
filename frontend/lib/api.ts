@@ -128,6 +128,8 @@ export const endpoints = {
   rotateInviteCode: (groupId: string) => `${API_PREFIX}/groups/${groupId}/rotate-code`,
   sendMemberReminder: (groupId: string, userId: string) => `${API_PREFIX}/groups/${groupId}/members/${userId}/send-reminder`,
   sendRemindersBulk: (groupId: string) => `${API_PREFIX}/groups/${groupId}/send-reminders-bulk`,
+  // Manually runs the payout scheduler across ALL groups (not scoped to one) — testing/demo only.
+  triggerScheduler: `${API_PREFIX}/cycles/admin/trigger-scheduler`,
   sendInvite: (groupId: string) => `${API_PREFIX}/groups/${groupId}/invites`,
   myInvites: `${API_PREFIX}/groups/me/invites`,
   respondInvite: (inviteId: string, accept: boolean) => `${API_PREFIX}/groups/invites/${inviteId}/respond?accept=${accept}`,

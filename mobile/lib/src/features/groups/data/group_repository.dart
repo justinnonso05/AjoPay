@@ -164,6 +164,17 @@ class GroupRepository {
     );
   }
 
+  /// Manually runs the payout scheduler across every group (not just this
+  /// one) — for testing/demo, so a due payout doesn't have to wait for the
+  /// real cron interval. Returns the backend's status message.
+  Future<String> triggerScheduler() async {
+    final response = await _apiClient.post(
+      ApiConstants.triggerScheduler,
+      headers: await _secureStorage.authHeaders(),
+    );
+    return response['data']?.toString() ?? 'Payout scheduler triggered.';
+  }
+
   // --- Invites (direct, by email/username — separate from invite codes) ---
 
   Future<GroupInvite> sendInvite(String groupId, String emailOrUsername) async {

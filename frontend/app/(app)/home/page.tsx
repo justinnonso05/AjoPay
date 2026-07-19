@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "@/components/app/empty-state";
 import { SectionHeader } from "@/components/app/section-header";
 import { StatusPill } from "@/components/app/status-pill";
@@ -34,6 +34,7 @@ export default function HomePage() {
   const { invites } = useInvites();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [mountedGreeting, setMountedGreeting] = useState("");
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Computed client-side only to avoid an SSR/CSR hydration mismatch (server has no local time-of-day).
@@ -41,8 +42,22 @@ export default function HomePage() {
     setMountedGreeting(greeting());
   }, []);
 
+  const carouselCount = summaries.length + 1; // +1 for the trailing "add another group" card.
   const clampedIndex = summaries.length === 0 ? 0 : Math.min(selectedIndex, summaries.length - 1);
   const selected = summaries[clampedIndex];
+
+  const handleCarouselScroll = () => {
+    const el = carouselRef.current;
+    if (!el || !el.children.length) return;
+    const cardWidth = (el.children[0] as HTMLElement).offsetWidth + 16; // + gap
+    setSelectedIndex(Math.round(el.scrollLeft / cardWidth));
+  };
+
+  const scrollToCard = (index: number) => {
+    const el = carouselRef.current;
+    if (!el || !el.children[index]) return;
+    (el.children[index] as HTMLElement).scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  };
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-8 sm:px-10 sm:py-10">
@@ -68,15 +83,19 @@ export default function HomePage() {
           <div className="h-56 animate-pulse rounded-card bg-white" />
         ) : hasGroup ? (
           <div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {summaries.map((summary, i) => (
-                <button key={summary.group.id} type="button" onClick={() => setSelectedIndex(i)} className="text-left">
-                  <GroupCard summary={summary} selected={i === clampedIndex} />
-                </button>
+            <div
+              ref={carouselRef}
+              onScroll={handleCarouselScroll}
+              className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth px-6 pb-1 [scrollbar-width:none] sm:-mx-10 sm:px-10 [&::-webkit-scrollbar]:hidden"
+            >
+              {summaries.map((summary) => (
+                <div key={summary.group.id} className="w-[85%] shrink-0 snap-center sm:w-[380px]">
+                  <GroupCard summary={summary} />
+                </div>
               ))}
               <Link
                 href="/join-or-create"
-                className="flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-card border border-dashed border-brand-dark/15 bg-white text-center transition-colors hover:border-brand-accent/40"
+                className="flex w-[85%] shrink-0 snap-center flex-col items-center justify-center gap-3 rounded-card border border-dashed border-brand-dark/15 bg-white text-center transition-colors hover:border-brand-accent/40 sm:w-[380px]"
               >
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-pale">
                   <PlusCircle size={20} className="text-brand-accent" />
@@ -84,6 +103,19 @@ export default function HomePage() {
                 <span className="font-display text-sm font-bold text-brand-dark">Join or Create Another Group</span>
               </Link>
             </div>
+            {carouselCount > 1 && (
+              <div className="mt-3 flex justify-center gap-1.5">
+                {Array.from({ length: carouselCount }).map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => scrollToCard(i)}
+                    aria-label={`Go to card ${i + 1}`}
+                    className={`h-1.5 rounded-full transition-all ${i === clampedIndex ? "w-4 bg-brand-accent" : "w-1.5 bg-brand-dark/15"}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="rounded-card bg-white shadow-sm">

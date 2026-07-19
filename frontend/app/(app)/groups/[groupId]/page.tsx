@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRing, Copy, Pencil, Share2, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { BellRing, Copy, Pencil, Share2, ShieldCheck, UserPlus, Users, Zap } from "lucide-react";
 import Link from "next/link";
 import { use, useState } from "react";
 import { Modal } from "@/components/app/modal";
@@ -126,6 +126,28 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
     }
   };
 
+  const handleTriggerScheduler = async () => {
+    if (
+      !confirm(
+        "Run payout check? This manually runs the payout scheduler across ALL groups, not just this one — it's a testing/demo shortcut, not something you'd normally need to press.",
+      )
+    ) {
+      return;
+    }
+    setIsBusy(true);
+    setBusyError(null);
+    try {
+      const res = await api.post(endpoints.triggerScheduler, {}, authHeaders());
+      const updated = await api.get(endpoints.group(groupId), authHeaders());
+      setGroup(updated.data as typeof group);
+      showToast(typeof res.data === "string" ? res.data : "Payout scheduler triggered.");
+    } catch (err) {
+      setBusyError(err instanceof ApiError ? err.message : "Could not run payout check.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 sm:px-10 sm:py-10">
       <div className="flex items-start justify-between gap-3">
@@ -220,6 +242,15 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
               Remind Everyone Who Owes
             </button>
           )}
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={handleTriggerScheduler}
+            className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-xs font-bold text-blue-500 disabled:opacity-50"
+          >
+            <Zap size={14} />
+            Run Payout Check (Demo)
+          </button>
         </div>
       )}
 

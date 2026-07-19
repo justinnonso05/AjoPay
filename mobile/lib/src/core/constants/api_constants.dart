@@ -62,6 +62,11 @@ class ApiConstants {
   static String sendMemberReminder(String groupId, String userId) => '$apiPrefix/groups/$groupId/members/$userId/send-reminder';
   static String sendRemindersBulk(String groupId) => '$apiPrefix/groups/$groupId/send-reminders-bulk';
 
+  // Manually runs the payout scheduler across ALL groups (not scoped to
+  // one group) — for testing/demo so payouts don't need to wait for the
+  // real cron interval.
+  static String get triggerScheduler => '$apiPrefix/cycles/admin/trigger-scheduler';
+
   // Group invite endpoints (direct invite by username/email — separate
   // from the invite-code join flow)
   static String sendInvite(String groupId) => '$apiPrefix/groups/$groupId/invites';

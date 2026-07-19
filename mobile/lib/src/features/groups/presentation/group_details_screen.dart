@@ -185,6 +185,46 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     }
   }
 
+  /// Manually runs the payout scheduler across every group (not just this
+  /// one) — a testing/demo shortcut so a due payout doesn't have to wait
+  /// for the real cron interval. Refreshes this group afterward in case it
+  /// was the one that paid out.
+  Future<void> _triggerScheduler() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Run payout check?'),
+        content: const Text(
+          "This manually runs the payout scheduler across ALL groups, not just this one — it's a testing/demo shortcut, not something you'd normally need to press.",
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Run Check')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isBusy = true);
+    try {
+      final message = await ref.read(groupRepositoryProvider).triggerScheduler();
+      final updated = await ref.read(groupRepositoryProvider).getGroup(widget.groupId);
+      if (!mounted) return;
+      setState(() => _group = updated);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: AppColors.darkGreen));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.darkGreen));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not run payout check: $e'), backgroundColor: AppColors.darkGreen),
+      );
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
   Future<void> _remindMember(GroupMember member) async {
     try {
       await ref.read(groupRepositoryProvider).sendMemberReminder(widget.groupId, member.userId);
@@ -367,6 +407,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
             onRotateCode: _rotateInviteCode,
             onSendInvite: _sendInvite,
             onSendReminders: group.status == 'active' ? _sendReminders : null,
+            onTriggerScheduler: _triggerScheduler,
           ),
           const SizedBox(height: 20),
         ],
@@ -523,6 +564,7 @@ class _AdminToolsCard extends StatelessWidget {
   final VoidCallback onRotateCode;
   final VoidCallback onSendInvite;
   final VoidCallback? onSendReminders;
+  final VoidCallback onTriggerScheduler;
 
   const _AdminToolsCard({
     required this.group,
@@ -534,6 +576,7 @@ class _AdminToolsCard extends StatelessWidget {
     required this.onRotateCode,
     required this.onSendInvite,
     required this.onSendReminders,
+    required this.onTriggerScheduler,
   });
 
   @override
@@ -653,6 +696,15 @@ class _AdminToolsCard extends StatelessWidget {
                 label: Text('Remind Everyone Who Owes', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.warning)),
               ),
             ),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: isBusy ? null : onTriggerScheduler,
+              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 10)),
+              icon: const Icon(Icons.bolt_rounded, size: 16, color: AppColors.info),
+              label: Text('Run Payout Check (Demo)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.info)),
+            ),
+          ),
         ],
       ),
     );
