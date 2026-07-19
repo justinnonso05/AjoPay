@@ -7,8 +7,8 @@ from app.common.schemas import BaseResponse
 from app.modules.user.models import User
 from app.modules.group.models import Group
 from app.core.security import get_current_user
-from .schemas import GroupResponse, GroupCreate, GroupUpdate, GroupStartRequest, JoinGroupRequest, PayFromWalletRequest, GroupMemberProfileResponse
-from .service import create_group_service, join_group_service, update_group_service, start_group_service, pay_group_from_wallet_service, generate_direct_payment_service, get_group_members_service
+from .schemas import GroupResponse, GroupCreate, GroupUpdate, GroupStartRequest, JoinGroupRequest, PayFromWalletRequest, GroupMemberProfileResponse, GroupRotationResponse
+from .service import create_group_service, join_group_service, update_group_service, start_group_service, pay_group_from_wallet_service, generate_direct_payment_service, get_group_members_service, get_group_rotation_service
 
 router = APIRouter(prefix="/groups", tags=["Groups"])
 
@@ -230,17 +230,33 @@ async def get_group_members(
         data=members
     )
 
-from app.services.ai import generate_reminder_copy
+@router.get("/{group_id}/rotations", response_model=BaseResponse[list[GroupRotationResponse]])
+async def get_group_rotation(
+    group_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns the full payout rotation schedule for the group.
+    Shows who gets paid each cycle, whether it's been completed, and the current cycle's payout date.
+    """
+    rotation = await get_group_rotation_service(group_id, db)
+    return BaseResponse(
+        success=True,
+        message="Group rotation schedule retrieved successfully",
+        data=rotation
+    )
 
-@router.post("/{group_id}/members/{user_id}/generate-reminder", response_model=BaseResponse[str])
-async def generate_member_reminder(
+from app.modules.group.reminder_service import send_manual_reminder
+
+@router.post("/{group_id}/members/{user_id}/send-reminder", response_model=BaseResponse[str])
+async def send_member_reminder(
     group_id: str,
     user_id: str,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Generate an AI-crafted reminder copy for a member to pay their upcoming Ajo contribution.
+    Generate an AI-crafted reminder copy for a member and send it via email, chat, and notification.
     Requires admin privileges.
     """
     group_res = await db.execute(select(Group).where(Group.id == group_id))
@@ -256,15 +272,70 @@ async def generate_member_reminder(
     if not member:
         raise HTTPException(status_code=404, detail="Member not found")
         
-    copy = await generate_reminder_copy(
-        member_name=member.first_name,
-        group_name=group.name,
-        amount=float(group.contribution_amount),
-        cycle_number=group.current_cycle_number
-    )
+    copy = await send_manual_reminder(member, group, db)
+    await db.commit()
     
     return BaseResponse(
         success=True,
-        message="Reminder copy generated",
+        message="Reminder sent successfully",
         data=copy
+    )
+
+from app.modules.membership.models import Membership
+from app.modules.transaction.models import GroupLedgerEntry
+from app.common.enums import MembershipStatus, GroupLedgerEntryType
+
+@router.post("/{group_id}/send-reminders-bulk", response_model=BaseResponse[dict])
+async def send_bulk_reminders(
+    group_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Triggers a manual reminder for all members of the group who have not yet paid for the current cycle.
+    """
+    group_res = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_res.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    if group.admin_user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only admin can generate reminders")
+        
+    mem_res = await db.execute(
+        select(Membership, User)
+        .join(User, Membership.user_id == User.id)
+        .where(
+            Membership.group_id == group.id,
+            Membership.status == MembershipStatus.ACTIVE
+        )
+    )
+    members = mem_res.all()
+    
+    sent_count = 0
+    for membership, user in members:
+        # Check if they have already paid
+        payment_res = await db.execute(
+            select(GroupLedgerEntry).where(
+                GroupLedgerEntry.group_id == group.id,
+                GroupLedgerEntry.member_id == user.id,
+                GroupLedgerEntry.cycle_number == group.current_cycle_number,
+                GroupLedgerEntry.type.in_([
+                    GroupLedgerEntryType.CONTRIBUTION_WALLET.value, 
+                    GroupLedgerEntryType.CONTRIBUTION_DIRECT.value
+                ])
+            )
+        )
+        if payment_res.scalar_one_or_none():
+            continue # Already paid
+            
+        await send_manual_reminder(user, group, db)
+        sent_count += 1
+        
+    await db.commit()
+    
+    return BaseResponse(
+        success=True,
+        message=f"Sent {sent_count} manual reminders",
+        data={"sent_count": sent_count}
     )

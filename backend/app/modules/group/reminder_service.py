@@ -132,61 +132,69 @@ async def evaluate_and_send_reminders(db: AsyncSession, group: Group):
             )
             db.add(tracking)
             
-        # Send Reminder!
-        try:
-            # 1. Generate AI Copy
-            ai_message = await generate_reminder_copy(
-                member_name=user.first_name,
-                group_name=group.name,
-                amount=float(group.contribution_amount),
-                cycle_number=group.current_cycle_number
-            )
-            
-            # 2. Chat System Message
-            chat_msg = ChatMessage(
-                group_id=group.id,
-                sender_id=user.id, # We can assign it to the user or admin, but let's make it a pure system message
-                message=ai_message,
-                is_system=True
-            )
-            # Since it's a system message and we don't have a distinct "system" user, we use the group admin id
-            chat_msg.sender_id = group.admin_user_id
-            db.add(chat_msg)
-            await db.flush()
-            
-            # 3. Notification
-            notif = Notification(
-                user_id=user.id,
-                title="Ajo Contribution Reminder",
-                message=ai_message,
-                type="payment_reminder"
-            )
-            db.add(notif)
-            
-            # 4. Email
-            await send_email(
-                user.email,
-                user.first_name,
-                f"AjoPay Reminder: {group.name}",
-                f"<p>{ai_message}</p>"
-            )
-            
-            # 5. Broadcast to WebSocket (if connected)
-            from app.modules.chat.router import manager
-            await manager.broadcast(group.id, {
-                "action": "new_message",
-                "message": {
-                    "id": str(chat_msg.id),
-                    "group_id": group.id,
-                    "sender_id": str(chat_msg.sender_id),
-                    "message": ai_message,
-                    "is_system": True,
-                    "is_edited": False,
-                    "is_deleted": False,
-                    "created_at": now.isoformat()
-                }
-            })
-            
-            logger.info(f"Sent {reminder_type} reminder to {user.first_name} for group {group.name}")
-        except Exception as e:
-            logger.error(f"Error sending reminder to user {user.id} in group {group.id}: {e}", exc_info=True)
+            # Send Reminder!
+            await send_manual_reminder(user, group, db)
+
+async def send_manual_reminder(user: User, group: Group, db: AsyncSession) -> str:
+    """
+    Forces a reminder to be sent (AI generation, chat message, notification, and email)
+    and returns the generated message copy.
+    """
+    now = datetime.now(timezone.utc)
+    try:
+        # 1. Generate AI Copy
+        ai_message = await generate_reminder_copy(
+            member_name=user.first_name,
+            group_name=group.name,
+            amount=float(group.contribution_amount),
+            cycle_number=group.current_cycle_number
+        )
+        
+        # 2. Chat System Message
+        chat_msg = ChatMessage(
+            group_id=group.id,
+            sender_id=group.admin_user_id,
+            message=ai_message,
+            is_system=True
+        )
+        db.add(chat_msg)
+        await db.flush()
+        
+        # 3. Notification
+        notif = Notification(
+            user_id=user.id,
+            title="Ajo Contribution Reminder",
+            message=ai_message,
+            type="payment_reminder"
+        )
+        db.add(notif)
+        
+        # 4. Email
+        await send_email(
+            user.email,
+            user.first_name,
+            f"AjoPay Reminder: {group.name}",
+            f"<p>{ai_message}</p>"
+        )
+        
+        # 5. Broadcast to WebSocket (if connected)
+        from app.modules.chat.router import manager
+        await manager.broadcast(group.id, {
+            "action": "new_message",
+            "message": {
+                "id": str(chat_msg.id),
+                "group_id": group.id,
+                "sender_id": str(chat_msg.sender_id),
+                "message": ai_message,
+                "is_system": True,
+                "is_edited": False,
+                "is_deleted": False,
+                "created_at": now.isoformat()
+            }
+        })
+        
+        logger.info(f"Manually sent reminder to {user.first_name} for group {group.name}")
+        return ai_message
+    except Exception as e:
+        logger.error(f"Error sending manual reminder to user {user.id} in group {group.id}: {e}", exc_info=True)
+        raise

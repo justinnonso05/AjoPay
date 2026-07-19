@@ -202,3 +202,117 @@ async def withdraw_from_wallet(user: User, amount: float, pin: str, db: AsyncSes
     await db.commit()
     await db.refresh(entry)
     return entry
+
+
+async def lookup_user_by_account_number(account_number: str, db: AsyncSession) -> User:
+    """Fetch a user's public profile via their personal reserved account number."""
+    from sqlalchemy import select
+    result = await db.execute(
+        select(User).where(User.personal_reserved_account_number == account_number)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="No AjoPay user found with that account number")
+    return user
+
+
+async def transfer_wallet_to_wallet(
+    sender: User,
+    recipient_account_number: str,
+    amount: float,
+    pin: str,
+    narration: str | None,
+    db: AsyncSession,
+) -> WalletLedgerEntry:
+    """
+    Transfer funds from the sender's AjoPay wallet to another user's AjoPay wallet.
+    Internal ledger operation — no Monnify call needed.
+    Requires PIN verification.
+    """
+    import asyncio
+    from sqlalchemy import select
+    from app.modules.notification.models import Notification
+    from app.services.email import send_email
+
+    # 1. Verify PIN
+    if not sender.pin_hash:
+        raise HTTPException(status_code=400, detail="Transaction PIN not set")
+    if not verify_password(pin, sender.pin_hash):
+        raise HTTPException(status_code=400, detail="Invalid Transaction PIN")
+
+    # 2. Validate amount
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than zero")
+
+    # 3. Check sender balance
+    if float(sender.wallet_balance) < amount:
+        raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+
+    # 4. Find recipient
+    result = await db.execute(
+        select(User).where(User.personal_reserved_account_number == recipient_account_number)
+    )
+    recipient = result.scalar_one_or_none()
+    if not recipient:
+        raise HTTPException(status_code=404, detail="Recipient not found — verify the account number")
+    if recipient.id == sender.id:
+        raise HTTPException(status_code=400, detail="Cannot transfer to your own wallet")
+
+    # 5. Deduct from sender
+    sender.wallet_balance = float(sender.wallet_balance) - amount
+    db.add(sender)
+
+    sent_narration = narration or f"Transfer to {recipient.first_name} {recipient.last_name}"
+    sent_entry = WalletLedgerEntry(
+        user_id=sender.id,
+        type=WalletLedgerEntryType.WALLET_TRANSFER_SENT,
+        amount=-amount,
+        narration=sent_narration,
+    )
+    db.add(sent_entry)
+
+    # 6. Credit recipient
+    recipient.wallet_balance = float(recipient.wallet_balance) + amount
+    db.add(recipient)
+
+    recv_narration = narration or f"Transfer from {sender.first_name} {sender.last_name}"
+    recv_entry = WalletLedgerEntry(
+        user_id=recipient.id,
+        type=WalletLedgerEntryType.WALLET_TRANSFER_RECEIVED,
+        amount=amount,
+        narration=recv_narration,
+    )
+    db.add(recv_entry)
+
+    # 7. Notifications
+    sender_notif = Notification(
+        user_id=sender.id,
+        title="Transfer Sent",
+        message=f"You sent ₦{amount:,.2f} to {recipient.first_name} {recipient.last_name}.",
+        type="wallet_transfer",
+    )
+    recipient_notif = Notification(
+        user_id=recipient.id,
+        title="Transfer Received",
+        message=f"You received ₦{amount:,.2f} from {sender.first_name} {sender.last_name}.",
+        type="wallet_transfer",
+    )
+    db.add(sender_notif)
+    db.add(recipient_notif)
+
+    await db.commit()
+    await db.refresh(sent_entry)
+
+    # 8. Emails (fire and forget)
+    asyncio.create_task(send_email(
+        sender.email, sender.first_name,
+        f"Transfer of ₦{amount:,.2f} sent",
+        f"<p>Hi {sender.first_name},</p><p>You successfully sent <strong>₦{amount:,.2f}</strong> to <strong>{recipient.first_name} {recipient.last_name}</strong>.</p>"
+    ))
+    asyncio.create_task(send_email(
+        recipient.email, recipient.first_name,
+        f"You received ₦{amount:,.2f}",
+        f"<p>Hi {recipient.first_name},</p><p>You received <strong>₦{amount:,.2f}</strong> from <strong>{sender.first_name} {sender.last_name}</strong>.</p>"
+    ))
+
+    return sent_entry

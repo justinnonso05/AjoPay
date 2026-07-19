@@ -47,6 +47,8 @@ class WalletLedgerEntryType(str, Enum):
     PAYOUT_RECEIVED = "payout_received"
     RECEIVE_DELEGATION = "receive_delegation"
     WITHDRAWAL = "withdrawal"
+    WALLET_TRANSFER_SENT = "wallet_transfer_sent"
+    WALLET_TRANSFER_RECEIVED = "wallet_transfer_received"
     CORRECTION = "correction"
 
 class GroupLedgerEntryType(str, Enum):

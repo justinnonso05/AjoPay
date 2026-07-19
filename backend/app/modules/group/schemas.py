@@ -88,6 +88,22 @@ class GroupMemberProfileResponse(BaseModel):
     username: str
     risk_score: int
     risk_factors: Optional[str] = None
+    # Payment status for current cycle
+    has_paid_current_cycle: bool = False
+    payout_position: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+class GroupRotationResponse(BaseModel):
+    cycle_number: int
+    user_id: str
+    first_name: str
+    last_name: str
+    username: str
+    payout_date: Optional[datetime] = None
+    is_completed: bool
+    is_current: bool
 
     class Config:
         from_attributes = True

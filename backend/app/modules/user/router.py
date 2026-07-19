@@ -237,7 +237,8 @@ async def withdraw_funds(
 
 from app.modules.membership.models import Membership
 from app.modules.group.models import Group
-from .schemas import UserGroupMembershipResponse
+from .schemas import UserGroupMembershipResponse, WalletTransferRequest, UserByAccountResponse
+from .service import lookup_user_by_account_number, transfer_wallet_to_wallet
 
 @router.get(
     "/me/groups",
@@ -339,4 +340,57 @@ async def recalculate_risk_score(
         success=True,
         message="Risk score recalculated",
         data=user
+    )
+
+
+@router.get(
+    "/me/wallet/lookup",
+    response_model=BaseResponse[UserByAccountResponse],
+    summary="Look up an AjoPay user by their reserved account number",
+)
+async def lookup_by_account(
+    account_number: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Verify who owns a wallet before sending money.
+    Returns the user's name so you can confirm before initiating a transfer.
+    """
+    user = await lookup_user_by_account_number(account_number, db)
+    return BaseResponse(
+        success=True,
+        message="User found",
+        data=user,
+    )
+
+
+@router.post(
+    "/me/wallet/transfer",
+    response_model=BaseResponse[WalletLedgerEntryResponse],
+    summary="Transfer funds to another AjoPay user's wallet",
+)
+async def wallet_transfer(
+    data: WalletTransferRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Send money from your AjoPay wallet to another user's wallet.
+    - Look up the recipient first via GET /me/wallet/lookup?account_number=...
+    - Requires your Transaction PIN.
+    - Both sender and recipient receive in-app notifications and emails.
+    """
+    entry = await transfer_wallet_to_wallet(
+        sender=current_user,
+        recipient_account_number=data.recipient_account_number,
+        amount=data.amount,
+        pin=data.pin,
+        narration=data.narration,
+        db=db,
+    )
+    return BaseResponse(
+        success=True,
+        message=f"₦{data.amount:,.2f} transferred successfully",
+        data=entry,
     )

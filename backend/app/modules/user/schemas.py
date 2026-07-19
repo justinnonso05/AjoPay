@@ -86,6 +86,26 @@ class WithdrawRequest(BaseModel):
     amount: float
     pin: str
 
+class WalletTransferRequest(BaseModel):
+    """Send money from your wallet to another AjoPay user's wallet."""
+    recipient_account_number: str
+    amount: float
+    pin: str
+    narration: Optional[str] = None
+
+class UserByAccountResponse(BaseModel):
+    """Public profile returned when looking up a user by their reserved account number."""
+    id: str
+    first_name: str
+    last_name: str
+    username: str
+    personal_reserved_account_number: str
+    personal_reserved_account_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class UserGroupMembershipResponse(BaseModel):
     # Membership info
     membership_id: str

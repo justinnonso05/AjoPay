@@ -460,12 +460,49 @@ async def generate_direct_payment_service(user: User, group_id: str, db: AsyncSe
     }
 
 async def get_group_members_service(group_id: str, db: AsyncSession):
-    # Join Membership and User
+    # Get group to know current cycle number and rotation order
+    group_res = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_res.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    # Parse rotation order for position lookup
+    import json
+    rotation_order = []
+    if group.rotation_order:
+        try:
+            rotation_order = json.loads(group.rotation_order)
+        except Exception:
+            pass
+
+    # Get all members
     stmt = select(Membership, User).join(User, Membership.user_id == User.id).where(Membership.group_id == group_id)
     result = await db.execute(stmt)
-    
+
+    # Pre-fetch all paid member ids for the current cycle (if group started)
+    paid_member_ids = set()
+    if group.current_cycle_number > 0:
+        paid_res = await db.execute(
+            select(GroupLedgerEntry.member_id).where(
+                GroupLedgerEntry.group_id == group_id,
+                GroupLedgerEntry.cycle_number == group.current_cycle_number,
+                GroupLedgerEntry.type.in_([
+                    GroupLedgerEntryType.CONTRIBUTION_WALLET.value,
+                    GroupLedgerEntryType.CONTRIBUTION_DIRECT.value,
+                ])
+            )
+        )
+        paid_member_ids = {row[0] for row in paid_res.all()}
+
     members = []
     for mem, usr in result.all():
+        # Which position in the rotation is this user?
+        payout_position = None
+        if usr.user_id in rotation_order if hasattr(usr, 'user_id') else False:
+            payout_position = rotation_order.index(usr.id) + 1
+        elif usr.id in rotation_order:
+            payout_position = rotation_order.index(usr.id) + 1
+
         members.append({
             "id": mem.id,
             "group_id": mem.group_id,
@@ -477,9 +514,57 @@ async def get_group_members_service(group_id: str, db: AsyncSession):
             "last_name": usr.last_name,
             "username": usr.username,
             "risk_score": usr.risk_score,
-            "risk_factors": usr.risk_factors
+            "risk_factors": usr.risk_factors,
+            "has_paid_current_cycle": usr.id in paid_member_ids,
+            "payout_position": payout_position,
         })
     return members
+
+
+async def get_group_rotation_service(group_id: str, db: AsyncSession) -> list:
+    """Return the full payout rotation schedule for a group."""
+    import json
+
+    group_res = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_res.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+
+    if not group.rotation_order:
+        return []  # Group hasn't started yet
+
+    rotation_order = json.loads(group.rotation_order)
+
+    # Get all users in the rotation in one query
+    users_res = await db.execute(select(User).where(User.id.in_(rotation_order)))
+    users_by_id = {u.id: u for u in users_res.scalars().all()}
+
+    # Get next payout date base
+    from app.modules.cycle.service import calculate_next_payout_date
+    from datetime import timedelta
+
+    result = []
+    for idx, user_id in enumerate(rotation_order):
+        usr = users_by_id.get(user_id)
+        if not usr:
+            continue
+        cycle_num = idx + 1
+        is_completed = cycle_num < group.current_cycle_number
+        is_current = cycle_num == group.current_cycle_number
+
+        result.append({
+            "cycle_number": cycle_num,
+            "user_id": user_id,
+            "first_name": usr.first_name,
+            "last_name": usr.last_name,
+            "username": usr.username,
+            "payout_date": group.next_payout_date if is_current else None,
+            "is_completed": is_completed,
+            "is_current": is_current,
+        })
+
+    return result
+
 
 async def respond_to_invite_service(user: User, invite_id: str, accept: bool, db: AsyncSession):
     result = await db.execute(
