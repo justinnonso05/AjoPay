@@ -150,3 +150,16 @@ async def send_wallet_funded_email(to_email: str, to_name: str, amount: float) -
     template = env.get_template("emails/wallet_funded.html")
     html = template.render(to_name=to_name, amount=amount)
     return await send_email(to_email, to_name, "Wallet Funded", html)
+
+async def send_transfer_receipt_email(
+    to_email: str, to_name: str, amount: float, recipient_name: str, date: str, reference: str
+) -> bool:
+    template = env.get_template("emails/transfer_receipt.html")
+    html = template.render(
+        to_name=to_name,
+        amount=amount,
+        recipient_name=recipient_name,
+        date=date,
+        reference=reference
+    )
+    return await send_email(to_email, to_name, "Transfer Receipt", html)

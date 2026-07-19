@@ -1,5 +1,6 @@
 import logging
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query, UploadFile, File, HTTPException, Form
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
@@ -28,6 +29,56 @@ async def get_chat_history(
     current_user: User = Depends(get_current_user)
 ):
     return await get_chat_history_service(db, group_id, current_user, limit, offset)
+
+from app.services.cloudinary import upload_image_to_cloudinary
+
+@router.post("/{group_id}/chat/image", response_model=ChatMessageResponse)
+async def upload_chat_image(
+    group_id: str,
+    file: UploadFile = File(...),
+    message: str = Form(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Upload an image to the group chat. Optionally include a text message caption.
+    """
+    await verify_membership(db, group_id, current_user.id)
+    
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+        
+    file_bytes = await file.read()
+    url = await upload_image_to_cloudinary(file_bytes, folder=f"ajopay/chat/{group_id}")
+    
+    chat_msg = ChatMessage(
+        group_id=group_id,
+        sender_id=current_user.id,
+        message=message,
+        image_url=url,
+        is_system=False
+    )
+    db.add(chat_msg)
+    await db.commit()
+    await db.refresh(chat_msg)
+    
+    # Broadcast to all connected websocket clients
+    await manager.broadcast(group_id, {
+        "action": "new_message",
+        "message": {
+            "id": str(chat_msg.id),
+            "group_id": group_id,
+            "sender_id": str(current_user.id),
+            "message": message,
+            "image_url": url,
+            "is_system": False,
+            "is_edited": False,
+            "is_deleted": False,
+            "created_at": chat_msg.created_at.isoformat()
+        }
+    })
+    
+    return chat_msg
 
 @router.websocket("/{group_id}/ws")
 async def websocket_chat_endpoint(
@@ -84,6 +135,7 @@ async def websocket_chat_endpoint(
                             "is_system": False,
                             "is_edited": False,
                             "is_deleted": False,
+                            "image_url": None,
                             "created_at": chat_msg.created_at.isoformat()
                         }
                     })
@@ -113,6 +165,7 @@ async def websocket_chat_endpoint(
                                 "is_system": False,
                                 "is_edited": True,
                                 "is_deleted": False,
+                                "image_url": chat_msg.image_url,
                                 "created_at": chat_msg.created_at.isoformat()
                             }
                         })

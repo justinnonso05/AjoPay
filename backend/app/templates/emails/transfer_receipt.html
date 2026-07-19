@@ -1,0 +1,31 @@
+{% extends "emails/base.html" %}
+
+{% block content %}
+<p>Hi {{ to_name }},</p>
+<p>This is a receipt for your recent transfer.</p>
+
+<div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
+    <h2 style="margin-top: 0; color: #111827; font-size: 24px;">₦{{ "{:,.2f}".format(amount) }}</h2>
+    
+    <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+        <tr>
+            <td style="padding: 8px 0; color: #6b7280; font-size: 14px;">Transaction Type</td>
+            <td style="padding: 8px 0; color: #111827; text-align: right; font-weight: 500;">Wallet Transfer</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">To</td>
+            <td style="padding: 8px 0; color: #111827; text-align: right; font-weight: 500; border-top: 1px solid #e5e7eb;">{{ recipient_name }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">Date</td>
+            <td style="padding: 8px 0; color: #111827; text-align: right; font-weight: 500; border-top: 1px solid #e5e7eb;">{{ date }}</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">Reference</td>
+            <td style="padding: 8px 0; color: #111827; text-align: right; font-weight: 500; border-top: 1px solid #e5e7eb;">{{ reference }}</td>
+        </tr>
+    </table>
+</div>
+
+<p style="color: #4b5563; font-size: 14px;">If you have any questions, please reply to this email.</p>
+{% endblock %}

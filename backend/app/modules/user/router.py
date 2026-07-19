@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.common.schemas import BaseResponse
 from app.modules.user.models import User
-from .schemas import UserResponse, SetPayoutBankRequest, MockKycRequest, UserSearchResponse
+from .schemas import UserResponse, SetPayoutBankRequest, MockKycRequest, UserSearchResponse, UserUpdate
 from .service import request_bank_change_otp, set_payout_bank, get_banks_list, mock_kyc_and_create_wallet
 from sqlalchemy import select
 
@@ -83,6 +83,69 @@ async def get_me(current_user: User = Depends(get_current_user)):
     return BaseResponse(
         success=True,
         message="Profile fetched successfully",
+        data=UserResponse.from_orm_with_pin(current_user)
+    )
+
+from fastapi import UploadFile, File
+from app.services.cloudinary import upload_image_to_cloudinary
+
+@router.patch(
+    "/me",
+    response_model=BaseResponse[UserResponse],
+    summary="Update current user profile",
+)
+async def update_me(
+    data: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update basic profile information (first name, last name, phone).
+    """
+    if data.first_name is not None:
+        current_user.first_name = data.first_name
+    if data.last_name is not None:
+        current_user.last_name = data.last_name
+    if data.phone is not None:
+        current_user.phone = data.phone
+        
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    
+    return BaseResponse(
+        success=True,
+        message="Profile updated successfully",
+        data=UserResponse.from_orm_with_pin(current_user)
+    )
+
+@router.post(
+    "/me/avatar",
+    response_model=BaseResponse[UserResponse],
+    summary="Upload profile picture",
+)
+async def upload_avatar(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Upload a profile picture to Cloudinary and save the URL.
+    """
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+        
+    file_bytes = await file.read()
+    url = await upload_image_to_cloudinary(file_bytes, folder="ajopay/avatars")
+    
+    current_user.avatar_url = url
+    db.add(current_user)
+    await db.commit()
+    await db.refresh(current_user)
+    
+    return BaseResponse(
+        success=True,
+        message="Profile picture updated",
         data=UserResponse.from_orm_with_pin(current_user)
     )
 
@@ -187,7 +250,7 @@ async def list_banks():
     )
 
 from app.modules.transaction.models import WalletLedgerEntry
-from .schemas import WalletLedgerEntryResponse
+from .schemas import WalletLedgerEntryResponse, TransactionReceiptResponse
 from sqlalchemy import select
 
 @router.get(
@@ -209,6 +272,55 @@ async def get_wallet_transactions(
         success=True,
         message="Wallet transactions fetched successfully",
         data=transactions
+    )
+
+@router.get(
+    "/me/wallet/transactions/{transaction_id}",
+    response_model=BaseResponse[TransactionReceiptResponse],
+    summary="Get single transaction receipt details",
+)
+async def get_transaction_receipt(
+    transaction_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Fetch a single transaction to display as a receipt in the app.
+    Provides structured data (amounts, names, dates, references).
+    """
+    result = await db.execute(
+        select(WalletLedgerEntry)
+        .where(WalletLedgerEntry.id == transaction_id)
+        .where(WalletLedgerEntry.user_id == current_user.id)
+    )
+    entry = result.scalar_one_or_none()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+        
+    receipt_data = TransactionReceiptResponse(
+        transaction_id=str(entry.id),
+        type=entry.type.value,
+        amount=entry.amount,
+        status="Successful", # Internal ledger entries are typically successful if they exist, except pending monnify webhooks (we can assume success for internal wallet ones)
+        date=entry.created_at,
+        sender_name="AjoPay System" if entry.amount > 0 else f"{current_user.first_name} {current_user.last_name}",
+        recipient_name=f"{current_user.first_name} {current_user.last_name}" if entry.amount > 0 else "AjoPay System",
+        narration=entry.narration,
+        reference=entry.monnify_transaction_reference or entry.monnify_payment_reference or str(entry.id)
+    )
+    
+    # Attempt to resolve better names for peer transfers
+    from app.common.enums import WalletLedgerEntryType
+    if entry.type == WalletLedgerEntryType.TRANSFER_OUT or entry.type == WalletLedgerEntryType.TRANSFER_IN:
+        # We need the other party
+        # The narration contains "Transfer to UserID" or similar, but the entry doesn't strictly have a foreign key to the OTHER user. 
+        # For a robust system, we would add 'counterparty_id' to WalletLedgerEntry. For now, we rely on the narration string.
+        pass
+        
+    return BaseResponse(
+        success=True,
+        message="Receipt fetched successfully",
+        data=receipt_data
     )
 
 from .schemas import WithdrawRequest

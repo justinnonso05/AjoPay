@@ -3,13 +3,14 @@ from typing import Optional
 from datetime import datetime
 
 class ChatMessageCreate(BaseModel):
-    message: str
+    message: Optional[str] = None
 
 class ChatMessageResponse(BaseModel):
     id: str
     group_id: str
     sender_id: Optional[str]
-    message: str
+    message: Optional[str] = None
+    image_url: Optional[str] = None
     is_system: bool
     is_edited: bool = False
     is_deleted: bool = False

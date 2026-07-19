@@ -11,6 +11,7 @@ class UserResponse(BaseModel):
     last_name: str
     email: str
     phone: Optional[str] = None
+    avatar_url: Optional[str] = None
 
     # Wallet
     wallet_balance: Decimal
@@ -42,6 +43,10 @@ class UserResponse(BaseModel):
         obj.has_pin = bool(user.pin_hash)
         return obj
 
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
 
 class SetPayoutBankRequest(BaseModel):
     """
@@ -81,6 +86,17 @@ class WalletLedgerEntryResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+class TransactionReceiptResponse(BaseModel):
+    transaction_id: str
+    type: str
+    amount: float
+    status: str
+    date: datetime
+    sender_name: Optional[str] = None
+    recipient_name: Optional[str] = None
+    narration: Optional[str] = None
+    reference: Optional[str] = None
 
 class WithdrawRequest(BaseModel):
     amount: float

@@ -322,15 +322,25 @@ async def transfer_wallet_to_wallet(
     await db.refresh(sent_entry)
 
     # 8. Emails (fire and forget)
-    asyncio.create_task(send_email(
-        sender.email, sender.first_name,
-        f"Transfer of ₦{amount:,.2f} sent",
-        f"<p>Hi {sender.first_name},</p><p>You successfully sent <strong>₦{amount:,.2f}</strong> to <strong>{recipient.first_name} {recipient.last_name}</strong>.</p>"
+    from app.services.email import send_transfer_receipt_email
+    date_str = sent_entry.created_at.strftime("%b %d, %Y %H:%M")
+    
+    asyncio.create_task(send_transfer_receipt_email(
+        to_email=sender.email, 
+        to_name=sender.first_name, 
+        amount=amount, 
+        recipient_name=f"{recipient.first_name} {recipient.last_name}", 
+        date=date_str, 
+        reference=str(sent_entry.id)
     ))
-    asyncio.create_task(send_email(
-        recipient.email, recipient.first_name,
-        f"You received ₦{amount:,.2f}",
-        f"<p>Hi {recipient.first_name},</p><p>You received <strong>₦{amount:,.2f}</strong> from <strong>{sender.first_name} {sender.last_name}</strong>.</p>"
+    
+    asyncio.create_task(send_transfer_receipt_email(
+        to_email=recipient.email, 
+        to_name=recipient.first_name, 
+        amount=amount, 
+        recipient_name=f"{sender.first_name} {sender.last_name}", 
+        date=date_str, 
+        reference=str(recv_entry.id)
     ))
 
     return sent_entry

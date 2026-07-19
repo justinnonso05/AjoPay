@@ -616,3 +616,43 @@ You're right that just collecting it and storing it does nothing by itself. Its 
 A phone number or email can be thrown away and recreated in five minutes. A BVN can't — it's tied to one real person's entire banking life.
 That means a default can be recorded against the BVN, not against the AjoPay account — so if someone defaults in Group A, deletes their account, and tries to sign up fresh to join Group B, the same BVN can flag them before they're ever assigned an early rotation slot again.
 In a live (non-sandbox) version, this could eventually hook into Nigeria's existing BVN-linked bank fraud/watchlist infrastructure — meaning a serial defaulter's problem stops being "just this app" and starts threatening their standing with real banks. That's a genuine deterrent, not just a database flag. Worth being honest with judges that this last part is roadmap, not built — sandbox can't verify real BVNs anyway (§13.4) — but the architecture is designed to support it the moment live keys exist.
+
+
+
+**A sub-account is a second, real bank account you register with Monnify — not a database concept**
+
+`POST /api/v1/sub-accounts` (from your own guide's §9/Folder 5) takes a currency, bank code, and **an actual account number** — the destination you want your cut to land in — and gives you back a `subAccountCode`. That's a one-time setup step you genuinely haven't done yet. Nothing routes anywhere until this exists.
+
+**The split only happens at the moment real money touches Monnify — not on your internal wallet→group transfer**
+
+This is the part worth being precise about, because it's easy to assume "every contribution" gets split, and that's not quite right given your architecture:
+
+- `incomeSplitConfig` gets attached to a Reserved Account **at creation time** (it's a field in the same `POST` request you already use to create each user's account). From then on, *every payment that lands on that reserved account* — i.e. every wallet top-up (Path A) — automatically gets sliced.
+- For Path B (Dynamic Virtual Account), the same `incomeSplitConfig` array can instead be attached to the **Initialize Transaction** call, so a direct-to-group payment gets sliced at that point.
+- Your internal wallet → group pool step (§8.2) **can never carry a split**, because no Monnify transaction happens there at all — there's nothing for Monnify to slice. This means: if you only configure splitting on the Reserved Account, you're taking a cut on **wallet funding**, not on "each contribution" the way I loosely phrased it last time. Worth deciding deliberately whether that's actually what you want.
+
+**What the fields actually do (this is where I was too vague before):**
+
+```json
+"incomeSplitConfig": [
+  {
+    "subAccountCode": "MFY_SUB_xxxx",
+    "splitPercentage": 1,
+    "feePercentage": 100,
+    "feeBearer": true
+  }
+]
+```
+- `splitPercentage` (or `splitAmount` for a flat figure) — this is your actual platform cut: the % of the transaction amount diverted to your sub-account, off the top, automatically.
+- `feePercentage` — a separate thing entirely: what share of *Monnify's own* transaction fee (the 1.5%, capped at ₦2,000) the sub-account is responsible for, versus your main account.
+- `feeBearer` — whether that fee responsibility is charged to the sub-account or absorbed elsewhere.
+
+So on a ₦10,000 top-up with `splitPercentage: 1`: ₦100 goes straight to your sub-account's real bank account, and the rest settles toward your main balance (which is what backs the wallet), separately from however Monnify's own ₦150 processing fee gets apportioned via `feePercentage`.
+
+**The real product question this raises, which you'll need to decide:** if ₦100 gets skimmed at top-up, does the member's wallet show ₦10,000 or ₦9,900? If it silently shows less than what they sent, that's a transparency problem worth designing around explicitly (e.g. showing "₦10,000 received, ₦9,900 credited, ₦100 platform fee" rather than a mismatched number with no explanation).
+
+**What's actually needed to turn this on, concretely:**
+1. Create one sub-account pointing at a real bank account (yours) — one-time.
+2. Add `incomeSplitConfig` to the Reserved Account creation call for **new** users going forward — I haven't confirmed whether Monnify has an update endpoint that retroactively adds a split to an *already-created* reserved account, so I wouldn't assume that's possible without checking the docs directly.
+3. Separately decide whether to also attach it to Path B's Initialize Transaction, if you want direct-to-group payments fee'd too.
+
