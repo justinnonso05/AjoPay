@@ -145,6 +145,25 @@ class GroupRepository {
     return _parseGroup(response);
   }
 
+  /// Sends an AI-crafted payment reminder to one member (email, chat, and
+  /// notification). Admin-only; doesn't require knowing the member's paid
+  /// status client-side — the backend decides what to say.
+  Future<void> sendMemberReminder(String groupId, String userId) async {
+    await _apiClient.post(
+      ApiConstants.sendMemberReminder(groupId, userId),
+      headers: await _secureStorage.authHeaders(),
+    );
+  }
+
+  /// Reminds every member of the group who hasn't yet paid for the current
+  /// cycle. Admin-only.
+  Future<void> sendRemindersBulk(String groupId) async {
+    await _apiClient.post(
+      ApiConstants.sendRemindersBulk(groupId),
+      headers: await _secureStorage.authHeaders(),
+    );
+  }
+
   // --- Invites (direct, by email/username — separate from invite codes) ---
 
   Future<GroupInvite> sendInvite(String groupId, String emailOrUsername) async {

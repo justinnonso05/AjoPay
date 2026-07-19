@@ -126,6 +126,8 @@ export const endpoints = {
   approveMember: (groupId: string, userId: string) => `${API_PREFIX}/groups/${groupId}/members/${userId}/approve`,
   startGroup: (groupId: string) => `${API_PREFIX}/groups/${groupId}/start`,
   rotateInviteCode: (groupId: string) => `${API_PREFIX}/groups/${groupId}/rotate-code`,
+  sendMemberReminder: (groupId: string, userId: string) => `${API_PREFIX}/groups/${groupId}/members/${userId}/send-reminder`,
+  sendRemindersBulk: (groupId: string) => `${API_PREFIX}/groups/${groupId}/send-reminders-bulk`,
   sendInvite: (groupId: string) => `${API_PREFIX}/groups/${groupId}/invites`,
   myInvites: `${API_PREFIX}/groups/me/invites`,
   respondInvite: (inviteId: string, accept: boolean) => `${API_PREFIX}/groups/invites/${inviteId}/respond?accept=${accept}`,

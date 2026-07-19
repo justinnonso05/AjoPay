@@ -164,6 +164,35 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite sent'), backgroundColor: AppColors.darkGreen));
   }
 
+  Future<void> _sendReminders() async {
+    setState(() => _isBusy = true);
+    try {
+      await ref.read(groupRepositoryProvider).sendRemindersBulk(widget.groupId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reminders sent to everyone who still owes this round'), backgroundColor: AppColors.darkGreen),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.darkGreen));
+    } finally {
+      if (mounted) setState(() => _isBusy = false);
+    }
+  }
+
+  Future<void> _remindMember(GroupMember member) async {
+    try {
+      await ref.read(groupRepositoryProvider).sendMemberReminder(widget.groupId, member.userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Reminder sent to ${member.fullName}'), backgroundColor: AppColors.darkGreen),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.darkGreen));
+    }
+  }
+
   Future<void> _editGroup() async {
     final updated = await EditGroupSheet.show(context, _group!);
     if (updated == null) return;
@@ -245,6 +274,12 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                               label: member.status == 'active' ? 'Active' : member.status,
                               tone: member.status == 'active' ? PillTone.success : PillTone.warning,
                             ),
+                          if (_isCurrentUserAdmin && !member.isAdmin && _group?.status == 'active')
+                            IconButton(
+                              onPressed: () => _remindMember(member),
+                              icon: const Icon(Icons.notifications_active_outlined, size: 18, color: AppColors.warning),
+                              tooltip: 'Remind to pay',
+                            ),
                         ],
                       ),
                     );
@@ -321,6 +356,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
             onStartGroup: group.status == 'gathering' ? _startGroup : null,
             onRotateCode: _rotateInviteCode,
             onSendInvite: _sendInvite,
+            onSendReminders: group.status == 'active' ? _sendReminders : null,
           ),
           const SizedBox(height: 20),
         ],
@@ -337,6 +373,8 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
               _row('Members', '${_members.length}${group.memberCap != null ? ' / ${group.memberCap}' : ''}'),
               _divider(),
               _row('Current Round', '${group.currentCycleNumber}'),
+              _divider(),
+              _row('Pool Balance (this round)', '₦${formatAmount(group.poolBalance)}'),
               _divider(),
               _row('Admin', admin.isNotEmpty ? admin.first.fullName : '—'),
             ],
@@ -472,6 +510,7 @@ class _AdminToolsCard extends StatelessWidget {
   final VoidCallback? onStartGroup;
   final VoidCallback onRotateCode;
   final VoidCallback onSendInvite;
+  final VoidCallback? onSendReminders;
 
   const _AdminToolsCard({
     required this.group,
@@ -482,6 +521,7 @@ class _AdminToolsCard extends StatelessWidget {
     required this.onStartGroup,
     required this.onRotateCode,
     required this.onSendInvite,
+    required this.onSendReminders,
   });
 
   @override
@@ -591,6 +631,16 @@ class _AdminToolsCard extends StatelessWidget {
               label: Text('Invite Someone Directly', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentGreen)),
             ),
           ),
+          if (onSendReminders != null)
+            SizedBox(
+              width: double.infinity,
+              child: TextButton.icon(
+                onPressed: isBusy ? null : onSendReminders,
+                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 10)),
+                icon: const Icon(Icons.notifications_active_outlined, size: 16, color: AppColors.warning),
+                label: Text('Remind Everyone Who Owes', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.warning)),
+              ),
+            ),
         ],
       ),
     );

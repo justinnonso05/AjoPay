@@ -1,10 +1,12 @@
 "use client";
 
-import { Copy, Pencil, Share2, ShieldCheck, UserPlus, Users } from "lucide-react";
+import { BellRing, Copy, Pencil, Share2, ShieldCheck, UserPlus, Users } from "lucide-react";
 import Link from "next/link";
 import { use, useState } from "react";
 import { Modal } from "@/components/app/modal";
 import { StatusPill } from "@/components/app/status-pill";
+import { api, ApiError, endpoints } from "@/lib/api";
+import { authHeaders } from "@/lib/auth";
 import { hasPaidCurrentRound } from "@/lib/contribution-status";
 import { formatAmount, formatShortDate } from "@/lib/format";
 import { useGroup } from "@/lib/hooks/use-group";
@@ -36,6 +38,7 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
   const [showEdit, setShowEdit] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [remindingUserId, setRemindingUserId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -96,6 +99,31 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
     if (!group.invite_code) return;
     navigator.clipboard.writeText(`Join my AjoPay group with code ${group.invite_code}`);
     showToast("Invite message copied. Paste it anywhere to share.");
+  };
+
+  const handleSendReminders = async () => {
+    setIsBusy(true);
+    setBusyError(null);
+    try {
+      await api.post(endpoints.sendRemindersBulk(groupId), {}, authHeaders());
+      showToast("Reminders sent to everyone who still owes this round");
+    } catch (err) {
+      setBusyError(err instanceof ApiError ? err.message : "Something went wrong.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
+  const handleRemindMember = async (userId: string, name: string) => {
+    setRemindingUserId(userId);
+    try {
+      await api.post(endpoints.sendMemberReminder(groupId, userId), {}, authHeaders());
+      showToast(`Reminder sent to ${name}`);
+    } catch (err) {
+      setBusyError(err instanceof ApiError ? err.message : "Something went wrong.");
+    } finally {
+      setRemindingUserId(null);
+    }
   };
 
   return (
@@ -181,6 +209,17 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
             <UserPlus size={14} />
             Invite Someone Directly
           </button>
+          {group.status === "active" && (
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={handleSendReminders}
+              className="flex w-full items-center justify-center gap-2 rounded-full py-2.5 text-xs font-bold text-amber-600 disabled:opacity-50"
+            >
+              <BellRing size={14} />
+              Remind Everyone Who Owes
+            </button>
+          )}
         </div>
       )}
 
@@ -189,6 +228,7 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
         <Row label="Frequency" value={group.cycle_frequency ?? "—"} />
         <Row label="Members" value={`${members.length}${group.member_cap ? ` / ${group.member_cap}` : ""}`} />
         <Row label="Current Round" value={`${group.current_cycle_number}`} />
+        <Row label="Pool Balance (this round)" value={`₦${formatAmount(group.pool_balance)}`} />
         <Row label="Admin" value={admin ? `${admin.first_name} ${admin.last_name}`.trim() : "—"} />
       </div>
 
@@ -257,6 +297,17 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
                   <StatusPill label="Admin" tone="info" />
                 ) : (
                   <StatusPill label={m.status === "active" ? "Active" : m.status} tone={m.status === "active" ? "success" : "warning"} />
+                )}
+                {isAdmin && !m.is_admin && group.status === "active" && (
+                  <button
+                    type="button"
+                    disabled={remindingUserId === m.user_id}
+                    onClick={() => handleRemindMember(m.user_id, `${m.first_name} ${m.last_name}`.trim())}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-50 disabled:opacity-40"
+                    aria-label="Remind to pay"
+                  >
+                    <BellRing size={15} />
+                  </button>
                 )}
               </div>
             ))}

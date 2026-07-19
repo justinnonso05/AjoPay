@@ -59,6 +59,8 @@ class ApiConstants {
   static String approveMember(String groupId, String userId) => '$apiPrefix/groups/$groupId/members/$userId/approve';
   static String startGroup(String groupId) => '$apiPrefix/groups/$groupId/start';
   static String rotateInviteCode(String groupId) => '$apiPrefix/groups/$groupId/rotate-code';
+  static String sendMemberReminder(String groupId, String userId) => '$apiPrefix/groups/$groupId/members/$userId/send-reminder';
+  static String sendRemindersBulk(String groupId) => '$apiPrefix/groups/$groupId/send-reminders-bulk';
 
   // Group invite endpoints (direct invite by username/email — separate
   // from the invite-code join flow)
