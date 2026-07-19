@@ -20,6 +20,7 @@ class ApiConstants {
   static String get joinGroup => '$apiPrefix/groups/join';
   static String group(String groupId) => '$apiPrefix/groups/$groupId';
   static String groupMembers(String groupId) => '$apiPrefix/groups/$groupId/members';
+  static String groupRotations(String groupId) => '$apiPrefix/groups/$groupId/rotations';
 
   // User endpoints
   static String get me => '$apiPrefix/users/me';
@@ -34,6 +35,8 @@ class ApiConstants {
   // Wallet endpoints
   static String get walletTransactions => '$apiPrefix/users/me/wallet/transactions';
   static String get walletWithdraw => '$apiPrefix/users/me/wallet/withdraw';
+  static String walletLookup(String accountNumber) => '$apiPrefix/users/me/wallet/lookup?account_number=$accountNumber';
+  static String get walletTransfer => '$apiPrefix/users/me/wallet/transfer';
 
   // Transaction status polling (checks whether a Monnify webhook — wallet
   // top-up or dynamic virtual account group payment — has landed yet)

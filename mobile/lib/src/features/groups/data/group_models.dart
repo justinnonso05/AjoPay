@@ -228,6 +228,8 @@ class GroupMember {
   final String firstName;
   final String lastName;
   final String username;
+  final bool hasPaidCurrentCycle;
+  final int? payoutPosition;
 
   const GroupMember({
     required this.id,
@@ -238,6 +240,8 @@ class GroupMember {
     required this.firstName,
     required this.lastName,
     required this.username,
+    required this.hasPaidCurrentCycle,
+    required this.payoutPosition,
   });
 
   String get fullName => '$firstName $lastName'.trim();
@@ -252,6 +256,46 @@ class GroupMember {
       firstName: json['first_name']?.toString() ?? '',
       lastName: json['last_name']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
+      hasPaidCurrentCycle: json['has_paid_current_cycle'] == true,
+      payoutPosition: (json['payout_position'] as num?)?.toInt(),
+    );
+  }
+}
+
+/// From `GET /groups/{id}/rotations` — the full ordered payout schedule.
+class GroupRotationEntry {
+  final int cycleNumber;
+  final String userId;
+  final String firstName;
+  final String lastName;
+  final String username;
+  final DateTime? payoutDate;
+  final bool isCompleted;
+  final bool isCurrent;
+
+  const GroupRotationEntry({
+    required this.cycleNumber,
+    required this.userId,
+    required this.firstName,
+    required this.lastName,
+    required this.username,
+    required this.payoutDate,
+    required this.isCompleted,
+    required this.isCurrent,
+  });
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory GroupRotationEntry.fromJson(Map<String, dynamic> json) {
+    return GroupRotationEntry(
+      cycleNumber: (json['cycle_number'] as num?)?.toInt() ?? 0,
+      userId: json['user_id']?.toString() ?? '',
+      firstName: json['first_name']?.toString() ?? '',
+      lastName: json['last_name']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      payoutDate: DateTime.tryParse(json['payout_date']?.toString() ?? ''),
+      isCompleted: json['is_completed'] == true,
+      isCurrent: json['is_current'] == true,
     );
   }
 }

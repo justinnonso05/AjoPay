@@ -50,6 +50,18 @@ class GroupRepository {
     return data.whereType<Map<String, dynamic>>().map(GroupMember.fromJson).toList();
   }
 
+  /// Full ordered payout schedule for the group — who gets paid each
+  /// cycle, whether it's completed, and the current cycle's payout date.
+  Future<List<GroupRotationEntry>> getRotations(String groupId) async {
+    final response = await _apiClient.get(
+      ApiConstants.groupRotations(groupId),
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    if (data is! List) return [];
+    return data.whereType<Map<String, dynamic>>().map(GroupRotationEntry.fromJson).toList();
+  }
+
   Future<List<UserGroupMembership>> getMyGroups() async {
     final response = await _apiClient.get(
       ApiConstants.myGroups,

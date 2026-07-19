@@ -73,9 +73,22 @@ export type GroupMember = {
   first_name: string;
   last_name: string;
   username: string;
+  has_paid_current_cycle: boolean;
+  payout_position: number | null;
 };
 
 export type PendingMember = GroupMember;
+
+export type GroupRotationEntry = {
+  cycle_number: number;
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  username: string;
+  payout_date: string | null;
+  is_completed: boolean;
+  is_current: boolean;
+};
 
 export type GroupInvite = {
   id: string;
@@ -112,6 +125,15 @@ export type UserSearchResult = {
   last_name: string;
   risk_score: number;
   risk_factors?: string | null;
+};
+
+export type UserByAccount = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  username: string;
+  personal_reserved_account_number: string;
+  personal_reserved_account_name?: string | null;
 };
 
 export type Bank = { name: string; code: string };

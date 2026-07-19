@@ -18,6 +18,7 @@ import '../../auth/data/user_repository.dart';
 import '../data/wallet_controller.dart';
 import '../data/wallet_models.dart';
 import '../data/wallet_repository.dart';
+import 'widgets/transfer_sheet.dart';
 
 class WalletTab extends ConsumerStatefulWidget {
   const WalletTab({super.key});
@@ -139,6 +140,19 @@ class _WalletTabState extends ConsumerState<WalletTab> {
     }
   }
 
+  Future<void> _handleTransfer(double balance) async {
+    final sent = await TransferSheet.show(context, balance: balance);
+    if (sent != true || !mounted) return;
+    await Future.wait([
+      ref.read(userProfileControllerProvider.notifier).refresh(),
+      ref.read(walletTransactionsControllerProvider.notifier).refresh(),
+    ]);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Transfer sent'), backgroundColor: AppColors.darkGreen),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileState = ref.watch(userProfileControllerProvider);
@@ -168,6 +182,7 @@ class _WalletTabState extends ConsumerState<WalletTab> {
                 balance: double.tryParse(profile.walletBalance) ?? 0,
                 isBusy: _isWithdrawing,
                 onWithdraw: _handleWithdraw,
+                onTransfer: () => _handleTransfer(double.tryParse(profile.walletBalance) ?? 0),
                 profile: profile,
               ),
             const SizedBox(height: 24),
@@ -195,9 +210,10 @@ class _BalanceCard extends StatelessWidget {
   final double balance;
   final bool isBusy;
   final VoidCallback onWithdraw;
+  final VoidCallback onTransfer;
   final UserProfile profile;
 
-  const _BalanceCard({required this.balance, required this.isBusy, required this.onWithdraw, required this.profile});
+  const _BalanceCard({required this.balance, required this.isBusy, required this.onWithdraw, required this.onTransfer, required this.profile});
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +238,7 @@ class _BalanceCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(child: _actionButton('Withdraw', Icons.arrow_upward_rounded, isBusy ? null : onWithdraw)),
               const SizedBox(width: 10),
-              Expanded(child: _actionButton('Transfer', Icons.swap_horiz_rounded, () => _showComingSoon(context))),
+              Expanded(child: _actionButton('Transfer', Icons.swap_horiz_rounded, isBusy ? null : onTransfer)),
             ],
           ),
         ],
@@ -314,11 +330,6 @@ class _BalanceCard extends StatelessWidget {
     );
   }
 
-  void _showComingSoon(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Wallet-to-wallet transfer is coming soon'), backgroundColor: AppColors.darkGreen),
-    );
-  }
 
   Widget _actionButton(String label, IconData icon, VoidCallback? onTap) {
     return GestureDetector(

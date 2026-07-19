@@ -1,6 +1,6 @@
 "use client";
 
-import { BellRing, Copy, Pencil, Share2, ShieldCheck, UserPlus, Users, Zap } from "lucide-react";
+import { BellRing, Calendar, Copy, Pencil, Share2, ShieldCheck, UserPlus, Users, Zap } from "lucide-react";
 import Link from "next/link";
 import { use, useState } from "react";
 import { Modal } from "@/components/app/modal";
@@ -9,7 +9,9 @@ import { api, ApiError, endpoints } from "@/lib/api";
 import { authHeaders } from "@/lib/auth";
 import { hasPaidCurrentRound } from "@/lib/contribution-status";
 import { formatAmount, formatShortDate } from "@/lib/format";
+import { useCurrentUserId } from "@/lib/hooks/use-current-user-id";
 import { useGroup } from "@/lib/hooks/use-group";
+import { useRotations } from "@/lib/hooks/use-rotations";
 import { useWalletTransactions } from "@/lib/hooks/use-wallet-transactions";
 import { SHORTFALL_POLICY_DESCRIPTIONS } from "@/lib/types";
 import { EditGroupModal } from "./edit-group-modal";
@@ -32,6 +34,8 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
     setGroup,
   } = useGroup(groupId);
   const { items: transactions } = useWalletTransactions();
+  const { rotations, isLoading: isLoadingRotations } = useRotations(groupId);
+  const currentUserId = useCurrentUserId();
 
   const [isBusy, setIsBusy] = useState(false);
   const [busyError, setBusyError] = useState<string | null>(null);
@@ -50,7 +54,10 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
   if (isLoading) return <div className="mx-auto max-w-3xl px-6 py-10"><div className="h-96 animate-pulse rounded-card bg-white" /></div>;
   if (error || !group) return <div className="mx-auto max-w-3xl px-6 py-10 text-sm text-brand-dark/50">{error || "Couldn't load this group."}</div>;
 
-  const hasPaid = hasPaidCurrentRound(group, transactions);
+  const currentMember = members.find((m) => m.user_id === currentUserId);
+  // Prefer the backend's ground-truth `has_paid_current_cycle`; fall back
+  // to the wallet-history heuristic only if the membership hasn't loaded yet.
+  const hasPaid = currentMember ? currentMember.has_paid_current_cycle : hasPaidCurrentRound(group, transactions);
   const admin = members.find((m) => m.is_admin);
 
   const handleApprove = async (userId: string) => {
@@ -288,6 +295,42 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
         </ul>
       </div>
 
+      {group.status === "active" && (
+        <div className="mt-6 rounded-card bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold text-brand-dark/40">Payout Schedule</p>
+          <div className="mt-3">
+            {isLoadingRotations ? (
+              <div className="h-14 animate-pulse rounded-xl bg-soft-gray" />
+            ) : rotations.length === 0 ? (
+              <p className="text-xs text-brand-dark/40">No rotation order yet.</p>
+            ) : (
+              <div className="divide-y divide-brand-dark/5">
+                {rotations.map((r) => (
+                  <div key={r.cycle_number} className="flex items-center gap-3 py-2.5">
+                    <span
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-brand-dark ${
+                        r.is_current ? "bg-brand" : r.is_completed ? "bg-brand-pale" : "bg-soft-gray"
+                      }`}
+                    >
+                      {r.cycle_number}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-brand-dark">{`${r.first_name} ${r.last_name}`.trim() || `@${r.username}`}</p>
+                      {r.payout_date && (
+                        <p className="flex items-center gap-1 text-[11px] text-brand-dark/40">
+                          <Calendar size={10} /> {formatShortDate(r.payout_date)}
+                        </p>
+                      )}
+                    </div>
+                    <StatusPill label={r.is_current ? "Next" : r.is_completed ? "Paid Out" : "Upcoming"} tone={r.is_current ? "success" : r.is_completed ? "info" : "neutral"} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="mt-8 space-y-3">
         <Link
           href={group.status === "active" && !hasPaid ? `/groups/${groupId}/contribute` : "#"}
@@ -320,11 +363,16 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
                   <p className="truncate text-sm font-bold text-brand-dark">{`${m.first_name} ${m.last_name}`.trim()}</p>
                   <p className="text-xs text-brand-dark/40">@{m.username}</p>
                 </div>
-                {m.is_admin ? (
-                  <StatusPill label="Admin" tone="info" />
-                ) : (
-                  <StatusPill label={m.status === "active" ? "Active" : m.status} tone={m.status === "active" ? "success" : "warning"} />
-                )}
+                <div className="flex flex-col items-end gap-1">
+                  {m.is_admin ? (
+                    <StatusPill label="Admin" tone="info" />
+                  ) : (
+                    <StatusPill label={m.status === "active" ? "Active" : m.status} tone={m.status === "active" ? "success" : "warning"} />
+                  )}
+                  {group.status === "active" && (
+                    <StatusPill label={m.has_paid_current_cycle ? "Paid" : "Owes"} tone={m.has_paid_current_cycle ? "success" : "danger"} />
+                  )}
+                </div>
                 {isAdmin && !m.is_admin && group.status === "active" && (
                   <button
                     type="button"

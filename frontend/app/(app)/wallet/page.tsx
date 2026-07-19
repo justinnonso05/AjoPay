@@ -12,13 +12,14 @@ import { authHeaders } from "@/lib/auth";
 import { formatAmount, formatShortDate } from "@/lib/format";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { useWalletTransactions } from "@/lib/hooks/use-wallet-transactions";
-import { isCreditTransaction } from "@/lib/types";
+import { isCreditTransaction, type UserByAccount } from "@/lib/types";
 
 export default function WalletPage() {
   const { profile, refresh: refreshProfile } = useProfile();
   const { items: transactions, refresh: refreshTransactions } = useWalletTransactions();
   const [showAddMoney, setShowAddMoney] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showTransfer, setShowTransfer] = useState(false);
   const [showNoPayoutBank, setShowNoPayoutBank] = useState(false);
 
   const balance = parseFloat(profile?.wallet_balance ?? "0") || 0;
@@ -50,7 +51,7 @@ export default function WalletPage() {
           </button>
           <button
             type="button"
-            onClick={() => alert("Wallet-to-wallet transfer is coming soon")}
+            onClick={() => setShowTransfer(true)}
             className="flex flex-col items-center gap-1.5 rounded-2xl bg-white/15 py-3 text-white transition-colors hover:bg-white/25"
           >
             <RefreshCcw size={18} />
@@ -181,6 +182,17 @@ export default function WalletPage() {
           }}
         />
       )}
+
+      {showTransfer && (
+        <TransferFlow
+          balance={balance}
+          onClose={() => setShowTransfer(false)}
+          onSuccess={async () => {
+            setShowTransfer(false);
+            await Promise.all([refreshProfile(), refreshTransactions()]);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -257,6 +269,137 @@ function WithdrawFlow({ balance, onClose, onSuccess }: { balance: number; onClos
         className="mt-5 w-full rounded-full bg-brand py-3 text-sm font-bold text-brand-dark transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
       >
         Continue
+      </button>
+    </Modal>
+  );
+}
+
+function TransferFlow({ balance, onClose, onSuccess }: { balance: number; onClose: () => void; onSuccess: () => void }) {
+  const [stage, setStage] = useState<"account" | "amount" | "pin">("account");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [recipient, setRecipient] = useState<UserByAccount | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [narration, setNarration] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLookup = async () => {
+    setIsLookingUp(true);
+    setError(null);
+    try {
+      const res = await api.get(endpoints.walletLookup(accountNumber), authHeaders());
+      setRecipient(res.data as UserByAccount);
+      setStage("amount");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't find an account with that number.");
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+
+  const handleContinue = () => {
+    const value = parseFloat(amount);
+    if (!value || value <= 0) return;
+    if (value > balance) {
+      setError("That's more than your wallet balance.");
+      return;
+    }
+    setError(null);
+    setStage("pin");
+  };
+
+  const handleConfirm = async (pin: string) => {
+    if (!recipient) return;
+    const value = parseFloat(amount);
+    try {
+      await api.post(
+        endpoints.walletTransfer,
+        { recipient_account_number: recipient.personal_reserved_account_number, amount: value, pin, narration: narration.trim() || undefined },
+        authHeaders(),
+      );
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setStage("amount");
+    }
+  };
+
+  const recipientName = recipient ? `${recipient.first_name} ${recipient.last_name}`.trim() || `@${recipient.username}` : "";
+
+  if (stage === "pin") {
+    return (
+      <PinConfirmModal
+        title="Confirm Transfer"
+        subtitle={`Enter your PIN to send ₦${formatAmount(parseFloat(amount) || 0)} to ${recipientName}.`}
+        onConfirm={handleConfirm}
+        onClose={onClose}
+      />
+    );
+  }
+
+  if (stage === "amount" && recipient) {
+    return (
+      <Modal title="Transfer" onClose={onClose}>
+        <div className="flex items-center gap-2.5 rounded-2xl bg-brand-pale p-3.5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand font-display text-sm font-bold text-brand-dark">
+            {recipient.first_name?.[0]?.toUpperCase() ?? "?"}
+          </span>
+          <p className="text-sm font-bold text-brand-dark">{recipientName}</p>
+        </div>
+        <p className="mt-4 text-sm text-brand-dark/55">Available balance: ₦{formatAmount(balance)}</p>
+        <div className="mt-2 flex items-center rounded-xl border border-brand-dark/15 bg-white px-4 py-3">
+          <span className="mr-1 text-sm font-bold text-brand-dark/50">₦</span>
+          <input
+            type="number"
+            autoFocus
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            className="w-full text-sm text-brand-dark outline-none"
+          />
+        </div>
+        <input
+          type="text"
+          value={narration}
+          onChange={(e) => setNarration(e.target.value)}
+          placeholder="What's it for? (optional)"
+          className="mt-3 w-full rounded-xl border border-brand-dark/15 bg-white px-4 py-3 text-sm text-brand-dark outline-none placeholder:text-brand-dark/30"
+        />
+        {error && <p className="mt-2 text-xs font-semibold text-red-500">{error}</p>}
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!amount || parseFloat(amount) <= 0}
+          className="mt-5 w-full rounded-full bg-brand py-3 text-sm font-bold text-brand-dark transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
+        >
+          Continue
+        </button>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title="Transfer" onClose={onClose}>
+      <p className="text-sm text-brand-dark/55">Send money to another AjoPay user instantly.</p>
+      <label className="mb-1.5 mt-4 block text-xs font-bold text-brand-dark">Recipient Account Number</label>
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={10}
+        autoFocus
+        value={accountNumber}
+        onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+        placeholder="0123456789"
+        className="w-full rounded-xl border border-brand-dark/15 bg-white px-4 py-3 text-sm text-brand-dark outline-none focus:border-brand-dark"
+      />
+      {error && <p className="mt-2 text-xs font-semibold text-red-500">{error}</p>}
+      <button
+        type="button"
+        onClick={handleLookup}
+        disabled={accountNumber.length !== 10 || isLookingUp}
+        className="mt-5 w-full rounded-full border border-brand-dark/15 py-3 text-sm font-bold text-brand-dark disabled:opacity-40"
+      >
+        {isLookingUp ? "Looking up…" : "Find Account"}
       </button>
     </Modal>
   );

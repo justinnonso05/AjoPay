@@ -41,3 +41,36 @@ class WalletTransaction {
     );
   }
 }
+
+/// From `GET /users/me/wallet/lookup` — used to confirm who owns a wallet
+/// before sending them a transfer.
+class UserByAccount {
+  final String id;
+  final String firstName;
+  final String lastName;
+  final String username;
+  final String personalReservedAccountNumber;
+  final String? personalReservedAccountName;
+
+  const UserByAccount({
+    required this.id,
+    required this.firstName,
+    required this.lastName,
+    required this.username,
+    required this.personalReservedAccountNumber,
+    this.personalReservedAccountName,
+  });
+
+  String get fullName => '$firstName $lastName'.trim();
+
+  factory UserByAccount.fromJson(Map<String, dynamic> json) {
+    return UserByAccount(
+      id: json['id']?.toString() ?? '',
+      firstName: json['first_name']?.toString() ?? '',
+      lastName: json['last_name']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      personalReservedAccountNumber: json['personal_reserved_account_number']?.toString() ?? '',
+      personalReservedAccountName: json['personal_reserved_account_name']?.toString(),
+    );
+  }
+}

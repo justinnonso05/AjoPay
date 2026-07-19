@@ -120,6 +120,7 @@ export const endpoints = {
   joinGroup: `${API_PREFIX}/groups/join`,
   group: (groupId: string) => `${API_PREFIX}/groups/${groupId}`,
   groupMembers: (groupId: string) => `${API_PREFIX}/groups/${groupId}/members`,
+  groupRotations: (groupId: string) => `${API_PREFIX}/groups/${groupId}/rotations`,
   payFromWallet: (groupId: string) => `${API_PREFIX}/groups/${groupId}/pay-from-wallet`,
   generateDirectPayment: (groupId: string) => `${API_PREFIX}/groups/${groupId}/generate-direct-payment`,
   pendingMembers: (groupId: string) => `${API_PREFIX}/groups/${groupId}/members/pending`,
@@ -139,6 +140,8 @@ export const endpoints = {
   // Wallet
   walletTransactions: `${API_PREFIX}/users/me/wallet/transactions`,
   walletWithdraw: `${API_PREFIX}/users/me/wallet/withdraw`,
+  walletLookup: (accountNumber: string) => `${API_PREFIX}/users/me/wallet/lookup?account_number=${accountNumber}`,
+  walletTransfer: `${API_PREFIX}/users/me/wallet/transfer`,
   transactionStatus: (ref: string) => `${API_PREFIX}/users/me/transactions/status/${ref}`,
   banks: `${API_PREFIX}/users/banks`,
   validateBankAccount: (accountNumber: string, bankCode: string) =>

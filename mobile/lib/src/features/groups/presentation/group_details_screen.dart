@@ -32,8 +32,10 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
   GroupResponse? _group;
   List<GroupMember> _members = [];
   List<PendingMembership> _pendingMembers = [];
+  List<GroupRotationEntry> _rotations = [];
   bool _isLoading = true;
   bool _isLoadingPending = false;
+  bool _isLoadingRotations = true;
   bool _isBusy = false;
   String? _error;
 
@@ -62,11 +64,28 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
         _isLoading = false;
       });
       if (_isCurrentUserAdmin) _loadPendingMembers();
+      _loadRotations();
     } on ApiException catch (e) {
       setState(() {
         _error = e.message;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadRotations() async {
+    setState(() => _isLoadingRotations = true);
+    try {
+      final rotations = await ref.read(groupRepositoryProvider).getRotations(widget.groupId);
+      if (!mounted) return;
+      setState(() {
+        _rotations = rotations;
+        _isLoadingRotations = false;
+      });
+    } catch (_) {
+      // The rotation schedule is only meaningful once a group has started —
+      // an error here (e.g. group still gathering) just means "nothing to show".
+      if (mounted) setState(() => _isLoadingRotations = false);
     }
   }
 
@@ -297,13 +316,25 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
                               ],
                             ),
                           ),
-                          if (member.isAdmin)
-                            const StatusPill(label: 'Admin', tone: PillTone.info)
-                          else
-                            StatusPill(
-                              label: member.status == 'active' ? 'Active' : member.status,
-                              tone: member.status == 'active' ? PillTone.success : PillTone.warning,
-                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (member.isAdmin)
+                                const StatusPill(label: 'Admin', tone: PillTone.info)
+                              else
+                                StatusPill(
+                                  label: member.status == 'active' ? 'Active' : member.status,
+                                  tone: member.status == 'active' ? PillTone.success : PillTone.warning,
+                                ),
+                              if (_group?.status == 'active') ...[
+                                const SizedBox(height: 4),
+                                StatusPill(
+                                  label: member.hasPaidCurrentCycle ? 'Paid' : 'Owes',
+                                  tone: member.hasPaidCurrentCycle ? PillTone.success : PillTone.danger,
+                                ),
+                              ],
+                            ],
+                          ),
                           if (_isCurrentUserAdmin && !member.isAdmin && _group?.status == 'active')
                             IconButton(
                               onPressed: () => _remindMember(member),
@@ -347,7 +378,13 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     final group = _group!;
     final admin = _members.where((m) => m.isAdmin).toList();
     final isCurrentUserAdmin = _isCurrentUserAdmin;
-    final hasPaid = hasPaidCurrentRound(group, ref.watch(walletTransactionsControllerProvider).items);
+    final currentUserId = ref.read(currentUserProvider)?.id;
+    final currentMemberMatches = _members.where((m) => m.userId == currentUserId);
+    final currentMember = currentMemberMatches.isEmpty ? null : currentMemberMatches.first;
+    // Prefer the backend's ground-truth `has_paid_current_cycle` for the
+    // current user; fall back to the wallet-history heuristic only if their
+    // membership record hasn't loaded yet.
+    final hasPaid = currentMember?.hasPaidCurrentCycle ?? hasPaidCurrentRound(group, ref.watch(walletTransactionsControllerProvider).items);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
@@ -448,6 +485,10 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
             ],
           ),
         ),
+        if (group.status == 'active') ...[
+          const SizedBox(height: 20),
+          _PayoutScheduleCard(rotations: _rotations, isLoading: _isLoadingRotations),
+        ],
         const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
@@ -685,6 +726,80 @@ class _AdminToolsCard extends StatelessWidget {
               label: Text('Run Payout Check (Demo)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.info)),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PayoutScheduleCard extends StatelessWidget {
+  final List<GroupRotationEntry> rotations;
+  final bool isLoading;
+
+  const _PayoutScheduleCard({required this.rotations, required this.isLoading});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.xl), boxShadow: cardShadow()),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Payout Schedule', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          if (isLoading)
+            const SkeletonBox(height: 60)
+          else if (rotations.isEmpty)
+            Text('No rotation order yet.', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textMuted))
+          else
+            for (var i = 0; i < rotations.length; i++) ...[
+              _rotationRow(rotations[i]),
+              if (i != rotations.length - 1) Divider(height: 1, color: Colors.grey[100]),
+            ],
+        ],
+      ),
+    );
+  }
+
+  Widget _rotationRow(GroupRotationEntry entry) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: entry.isCurrent ? AppColors.brandGreen : (entry.isCompleted ? AppColors.paleGreen : AppColors.divider),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '${entry.cycleNumber}',
+              style: GoogleFonts.spaceGrotesk(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.darkGreen),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.fullName.isNotEmpty ? entry.fullName : '@${entry.username}',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                ),
+                if (entry.payoutDate != null)
+                  Text(formatShortDate(entry.payoutDate!), style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textMuted)),
+              ],
+            ),
+          ),
+          if (entry.isCurrent)
+            const StatusPill(label: 'Next', tone: PillTone.success)
+          else if (entry.isCompleted)
+            const StatusPill(label: 'Paid Out', tone: PillTone.info)
+          else
+            const StatusPill(label: 'Upcoming', tone: PillTone.neutral),
         ],
       ),
     );

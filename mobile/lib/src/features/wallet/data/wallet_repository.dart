@@ -60,6 +60,46 @@ class WalletRepository {
     return false;
   }
 
+  /// Looks up who owns a reserved account number, so the sender can confirm
+  /// the recipient's identity before transferring money to them.
+  Future<UserByAccount> lookupByAccount(String accountNumber) async {
+    final response = await _apiClient.get(
+      ApiConstants.walletLookup(accountNumber),
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    if (data is! Map<String, dynamic>) {
+      throw ApiException('Unexpected response from server.');
+    }
+    return UserByAccount.fromJson(data);
+  }
+
+  /// Sends [amount] from the caller's wallet to the wallet behind
+  /// [recipientAccountNumber]. Throws [ApiException] on a wrong PIN,
+  /// insufficient balance, or an unknown account number.
+  Future<WalletTransaction> transfer({
+    required String recipientAccountNumber,
+    required double amount,
+    required String pin,
+    String? narration,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.walletTransfer,
+      body: {
+        'recipient_account_number': recipientAccountNumber,
+        'amount': amount,
+        'pin': pin,
+        if (narration != null && narration.isNotEmpty) 'narration': narration,
+      },
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    if (data is! Map<String, dynamic>) {
+      throw ApiException('Unexpected response from server.');
+    }
+    return WalletTransaction.fromJson(data);
+  }
+
   // --- Payout bank setup ---
 
   Future<List<Bank>> getBanks() async {
