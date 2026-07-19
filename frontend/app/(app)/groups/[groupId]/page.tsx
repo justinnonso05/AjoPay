@@ -13,7 +13,7 @@ import { useCurrentUserId } from "@/lib/hooks/use-current-user-id";
 import { useGroup } from "@/lib/hooks/use-group";
 import { useRotations } from "@/lib/hooks/use-rotations";
 import { useWalletTransactions } from "@/lib/hooks/use-wallet-transactions";
-import { SHORTFALL_POLICY_DESCRIPTIONS } from "@/lib/types";
+import { SHORTFALL_POLICY_DESCRIPTIONS, type GroupMember } from "@/lib/types";
 import { EditGroupModal } from "./edit-group-modal";
 import { SendInviteModal } from "./send-invite-modal";
 import { StartGroupModal } from "./start-group-modal";
@@ -354,38 +354,42 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
       {showMembers && (
         <Modal title={`Members (${members.length})`} onClose={() => setShowMembers(false)}>
           <div className="max-h-96 divide-y divide-brand-dark/5 overflow-y-auto">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 py-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-pale font-display text-sm font-bold text-brand-accent">
-                  {m.first_name?.[0]?.toUpperCase() ?? "?"}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-brand-dark">{`${m.first_name} ${m.last_name}`.trim()}</p>
-                  <p className="text-xs text-brand-dark/40">@{m.username}</p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  {m.is_admin ? (
-                    <StatusPill label="Admin" tone="info" />
-                  ) : (
-                    <StatusPill label={m.status === "active" ? "Active" : m.status} tone={m.status === "active" ? "success" : "warning"} />
-                  )}
+            {membersSortedForList(members, group.status).map((m) => {
+              // "Active" is the default, expected state — only worth a badge when
+              // the role or status says something you wouldn't already assume.
+              const roleLabel = m.is_admin ? "Admin" : m.status !== "active" ? m.status : null;
+              return (
+                <div key={m.id} className="py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-pale font-display text-sm font-bold text-brand-accent">
+                      {m.first_name?.[0]?.toUpperCase() ?? "?"}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-brand-dark">{`${m.first_name} ${m.last_name}`.trim()}</p>
+                      <p className="text-xs text-brand-dark/40">@{m.username}</p>
+                    </div>
+                    {roleLabel && <StatusPill label={roleLabel} tone={m.is_admin ? "info" : "warning"} />}
+                  </div>
                   {group.status === "active" && (
-                    <StatusPill label={m.has_paid_current_cycle ? "Paid" : "Owes"} tone={m.has_paid_current_cycle ? "success" : "danger"} />
+                    <div className="mt-2 flex items-center gap-2 pl-[50px]">
+                      <StatusPill label={m.has_paid_current_cycle ? "Paid" : "Owes"} tone={m.has_paid_current_cycle ? "success" : "danger"} />
+                      <div className="flex-1" />
+                      {isAdmin && !m.is_admin && (
+                        <button
+                          type="button"
+                          disabled={remindingUserId === m.user_id}
+                          onClick={() => handleRemindMember(m.user_id, `${m.first_name} ${m.last_name}`.trim())}
+                          className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700 disabled:opacity-40"
+                        >
+                          <BellRing size={13} />
+                          Remind
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
-                {isAdmin && !m.is_admin && group.status === "active" && (
-                  <button
-                    type="button"
-                    disabled={remindingUserId === m.user_id}
-                    onClick={() => handleRemindMember(m.user_id, `${m.first_name} ${m.last_name}`.trim())}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-amber-600 hover:bg-amber-50 disabled:opacity-40"
-                    aria-label="Remind to pay"
-                  >
-                    <BellRing size={15} />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Modal>
       )}
@@ -416,6 +420,12 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
       {showStartGroup && <StartGroupModal members={members} onClose={() => setShowStartGroup(false)} onStart={handleStartGroup} />}
     </div>
   );
+}
+
+/** For an active group, members who still owe this round sort first — that's the list an admin actually wants when deciding who to remind. */
+function membersSortedForList(members: GroupMember[], groupStatus: string): GroupMember[] {
+  if (groupStatus !== "active") return members;
+  return [...members].sort((a, b) => Number(a.has_paid_current_cycle) - Number(b.has_paid_current_cycle));
 }
 
 function Row({ label, value }: { label: string; value: string }) {

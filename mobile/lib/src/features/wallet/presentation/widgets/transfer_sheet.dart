@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,45 +33,58 @@ class TransferSheet extends ConsumerStatefulWidget {
   ConsumerState<TransferSheet> createState() => _TransferSheetState();
 }
 
+enum _LookupStatus { idle, searching, found, notFound }
+
 class _TransferSheetState extends ConsumerState<TransferSheet> {
   final _accountController = TextEditingController();
   final _amountController = TextEditingController();
   final _narrationController = TextEditingController();
 
+  Timer? _debounce;
+  int _requestId = 0;
+  _LookupStatus _status = _LookupStatus.idle;
   UserByAccount? _recipient;
-  bool _isLookingUp = false;
   bool _isSubmitting = false;
   String? _error;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _accountController.dispose();
     _amountController.dispose();
     _narrationController.dispose();
     super.dispose();
   }
 
-  Future<void> _lookup() async {
-    final accountNumber = _accountController.text.trim();
-    if (accountNumber.length != 10) return;
-
+  void _onAccountChanged(String value) {
+    _debounce?.cancel();
     setState(() {
-      _isLookingUp = true;
-      _error = null;
       _recipient = null;
+      _error = null;
     });
+
+    final accountNumber = value.trim();
+    if (accountNumber.length != 10) {
+      setState(() => _status = _LookupStatus.idle);
+      return;
+    }
+
+    setState(() => _status = _LookupStatus.searching);
+    _debounce = Timer(const Duration(milliseconds: 400), () => _lookup(accountNumber));
+  }
+
+  Future<void> _lookup(String accountNumber) async {
+    final thisRequest = ++_requestId;
     try {
       final recipient = await ref.read(walletRepositoryProvider).lookupByAccount(accountNumber);
-      if (!mounted) return;
-      setState(() => _recipient = recipient);
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.message);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = 'Could not look up this account: $e');
-    } finally {
-      if (mounted) setState(() => _isLookingUp = false);
+      if (!mounted || thisRequest != _requestId) return;
+      setState(() {
+        _recipient = recipient;
+        _status = _LookupStatus.found;
+      });
+    } catch (_) {
+      if (!mounted || thisRequest != _requestId) return;
+      setState(() => _status = _LookupStatus.notFound);
     }
   }
 
@@ -145,22 +160,34 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
               controller: _accountController,
               keyboardType: TextInputType.number,
               maxLength: 10,
+              autofocus: true,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (_) {
-                if (_recipient != null) setState(() => _recipient = null);
-              },
+              onChanged: _onAccountChanged,
               decoration: InputDecoration(
                 counterText: '',
                 hintText: '0123456789',
                 hintStyle: const TextStyle(color: AppColors.hint, fontSize: 14),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                suffixIcon: _status == _LookupStatus.searching
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGreen)),
+                      )
+                    : _status == _LookupStatus.found
+                        ? const Icon(Icons.check_circle_rounded, color: AppColors.accentGreen)
+                        : null,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border, width: 1.2)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border, width: 1.2)),
                 focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.darkGreen, width: 1.5)),
               ),
             ),
             const SizedBox(height: 12),
-            if (_recipient != null)
+            if (_status == _LookupStatus.notFound)
+              Text(
+                'No AjoPay account found with that number.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.danger, fontWeight: FontWeight.w600),
+              ),
+            if (_status == _LookupStatus.found && _recipient != null)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
@@ -177,23 +204,8 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
                     ),
                   ],
                 ),
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                height: 46,
-                child: OutlinedButton(
-                  onPressed: (_accountController.text.trim().length == 10 && !_isLookingUp) ? _lookup : null,
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(23)),
-                  ),
-                  child: _isLookingUp
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textPrimary))
-                      : Text('Find Account', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                ),
               ),
-            if (_recipient != null) ...[
+            if (_status == _LookupStatus.found) ...[
               const SizedBox(height: 20),
               Text(
                 'Available balance: ₦${formatAmount(widget.balance)}',
@@ -203,7 +215,6 @@ class _TransferSheetState extends ConsumerState<TransferSheet> {
               TextField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                autofocus: true,
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   prefixText: '₦ ',

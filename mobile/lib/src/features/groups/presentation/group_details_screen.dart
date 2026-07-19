@@ -266,6 +266,15 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     );
   }
 
+  /// For an active group, members who still owe this round sort first —
+  /// that's the list an admin actually wants when deciding who to remind.
+  List<GroupMember> _sortedForMembersList() {
+    if (_group?.status != 'active') return _members;
+    final owes = _members.where((m) => !m.hasPaidCurrentCycle).toList();
+    final paid = _members.where((m) => m.hasPaidCurrentCycle).toList();
+    return [...owes, ...paid];
+  }
+
   void _showMembers() {
     showModalBottomSheet(
       context: context,
@@ -285,63 +294,20 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
               Text('Members (${_members.length})', style: GoogleFonts.spaceGrotesk(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
               const SizedBox(height: 16),
               Expanded(
-                child: ListView.separated(
-                  controller: scrollController,
-                  itemCount: _members.length,
-                  separatorBuilder: (context, index) => Divider(color: Colors.grey[100]),
-                  itemBuilder: (context, index) {
-                    final member = _members[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 38,
-                            height: 38,
-                            decoration: const BoxDecoration(color: AppColors.paleGreen, shape: BoxShape.circle),
-                            child: Center(
-                              child: Text(
-                                member.firstName.isNotEmpty ? member.firstName[0].toUpperCase() : '?',
-                                style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold, color: AppColors.accentGreen),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(member.fullName, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                                Text('@${member.username}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textMuted)),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              if (member.isAdmin)
-                                const StatusPill(label: 'Admin', tone: PillTone.info)
-                              else
-                                StatusPill(
-                                  label: member.status == 'active' ? 'Active' : member.status,
-                                  tone: member.status == 'active' ? PillTone.success : PillTone.warning,
-                                ),
-                              if (_group?.status == 'active') ...[
-                                const SizedBox(height: 4),
-                                StatusPill(
-                                  label: member.hasPaidCurrentCycle ? 'Paid' : 'Owes',
-                                  tone: member.hasPaidCurrentCycle ? PillTone.success : PillTone.danger,
-                                ),
-                              ],
-                            ],
-                          ),
-                          if (_isCurrentUserAdmin && !member.isAdmin && _group?.status == 'active')
-                            IconButton(
-                              onPressed: () => _remindMember(member),
-                              icon: const Icon(Icons.notifications_active_outlined, size: 18, color: AppColors.warning),
-                              tooltip: 'Remind to pay',
-                            ),
-                        ],
+                child: Builder(
+                  builder: (context) {
+                    // Members who still owe surface first — the admin's
+                    // reason for opening this list is usually "who do I chase".
+                    final sorted = _sortedForMembersList();
+                    return ListView.separated(
+                      controller: scrollController,
+                      itemCount: sorted.length,
+                      separatorBuilder: (context, index) => Divider(color: Colors.grey[100]),
+                      itemBuilder: (context, index) => _MemberRow(
+                        member: sorted[index],
+                        isGroupActive: _group?.status == 'active',
+                        canRemind: _isCurrentUserAdmin && !sorted[index].isAdmin && _group?.status == 'active',
+                        onRemind: () => _remindMember(sorted[index]),
                       ),
                     );
                   },
@@ -800,6 +766,88 @@ class _PayoutScheduleCard extends StatelessWidget {
             const StatusPill(label: 'Paid Out', tone: PillTone.info)
           else
             const StatusPill(label: 'Upcoming', tone: PillTone.neutral),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemberRow extends StatelessWidget {
+  final GroupMember member;
+  final bool isGroupActive;
+  final bool canRemind;
+  final VoidCallback onRemind;
+
+  const _MemberRow({
+    required this.member,
+    required this.isGroupActive,
+    required this.canRemind,
+    required this.onRemind,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // "Active" is the default, expected state — only worth a pill when the
+    // role or status says something the admin wouldn't already assume.
+    final roleLabel = member.isAdmin ? 'Admin' : (member.status == 'active' ? null : member.status);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(color: AppColors.paleGreen, shape: BoxShape.circle),
+                child: Center(
+                  child: Text(
+                    member.firstName.isNotEmpty ? member.firstName[0].toUpperCase() : '?',
+                    style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold, color: AppColors.accentGreen),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(member.fullName, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    Text('@${member.username}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
+              if (roleLabel != null)
+                StatusPill(
+                  label: roleLabel,
+                  tone: member.isAdmin ? PillTone.info : PillTone.warning,
+                ),
+            ],
+          ),
+          if (isGroupActive) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(left: 50),
+              child: Row(
+                children: [
+                  StatusPill(
+                    label: member.hasPaidCurrentCycle ? 'Paid' : 'Owes',
+                    tone: member.hasPaidCurrentCycle ? PillTone.success : PillTone.danger,
+                  ),
+                  const Spacer(),
+                  if (canRemind)
+                    TextButton.icon(
+                      onPressed: onRemind,
+                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                      icon: const Icon(Icons.notifications_active_outlined, size: 15, color: AppColors.warning),
+                      label: Text('Remind', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.warning)),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

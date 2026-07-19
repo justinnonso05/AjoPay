@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowDownRight, ArrowUpRight, Bolt, Building2, Copy, Info, PlusCircle, Receipt, RefreshCcw } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Bolt, Building2, CheckCircle2, Copy, Info, PlusCircle, Receipt, RefreshCcw } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/app/empty-state";
 import { Modal } from "@/components/app/modal";
 import { PinConfirmModal } from "@/components/app/pin-confirm-modal";
 import { SectionHeader } from "@/components/app/section-header";
+import { SuccessModal } from "@/components/app/success-modal";
 import { api, ApiError, endpoints } from "@/lib/api";
 import { authHeaders } from "@/lib/auth";
 import { formatAmount, formatShortDate } from "@/lib/format";
@@ -212,7 +213,7 @@ function MethodTile({ icon: Icon, title, subtitle }: { icon: typeof Bolt; title:
 }
 
 function WithdrawFlow({ balance, onClose, onSuccess }: { balance: number; onClose: () => void; onSuccess: () => void }) {
-  const [stage, setStage] = useState<"amount" | "pin">("amount");
+  const [stage, setStage] = useState<"amount" | "pin" | "success">("amount");
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -227,12 +228,22 @@ function WithdrawFlow({ balance, onClose, onSuccess }: { balance: number; onClos
     const value = parseFloat(amount);
     try {
       await api.post(endpoints.walletWithdraw, { amount: value, pin }, authHeaders());
-      onSuccess();
+      setStage("success");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
       setStage("amount");
     }
   };
+
+  if (stage === "success") {
+    return (
+      <SuccessModal
+        title="Withdrawal Successful"
+        subtitle={`₦${formatAmount(parseFloat(amount) || 0)} is on its way to your payout bank.`}
+        onPrimary={onSuccess}
+      />
+    );
+  }
 
   if (stage === "pin") {
     return (
@@ -275,27 +286,45 @@ function WithdrawFlow({ balance, onClose, onSuccess }: { balance: number; onClos
 }
 
 function TransferFlow({ balance, onClose, onSuccess }: { balance: number; onClose: () => void; onSuccess: () => void }) {
-  const [stage, setStage] = useState<"account" | "amount" | "pin">("account");
+  const [stage, setStage] = useState<"form" | "pin" | "success">("form");
   const [accountNumber, setAccountNumber] = useState("");
   const [recipient, setRecipient] = useState<UserByAccount | null>(null);
-  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState<"idle" | "searching" | "found" | "notFound">("idle");
   const [amount, setAmount] = useState("");
   const [narration, setNarration] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
 
-  const handleLookup = async () => {
-    setIsLookingUp(true);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- synchronizing local UI state to the accountNumber prop, not an async data fetch
+    setRecipient(null);
     setError(null);
-    try {
-      const res = await api.get(endpoints.walletLookup(accountNumber), authHeaders());
-      setRecipient(res.data as UserByAccount);
-      setStage("amount");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't find an account with that number.");
-    } finally {
-      setIsLookingUp(false);
+
+    if (accountNumber.length !== 10) {
+      setLookupStatus("idle");
+      return;
     }
-  };
+
+    setLookupStatus("searching");
+    debounceRef.current = setTimeout(async () => {
+      const thisRequest = ++requestIdRef.current;
+      try {
+        const res = await api.get(endpoints.walletLookup(accountNumber), authHeaders());
+        if (thisRequest !== requestIdRef.current) return;
+        setRecipient(res.data as UserByAccount);
+        setLookupStatus("found");
+      } catch {
+        if (thisRequest !== requestIdRef.current) return;
+        setLookupStatus("notFound");
+      }
+    }, 400);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [accountNumber]);
 
   const handleContinue = () => {
     const value = parseFloat(amount);
@@ -317,14 +346,24 @@ function TransferFlow({ balance, onClose, onSuccess }: { balance: number; onClos
         { recipient_account_number: recipient.personal_reserved_account_number, amount: value, pin, narration: narration.trim() || undefined },
         authHeaders(),
       );
-      onSuccess();
+      setStage("success");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
-      setStage("amount");
+      setStage("form");
     }
   };
 
   const recipientName = recipient ? `${recipient.first_name} ${recipient.last_name}`.trim() || `@${recipient.username}` : "";
+
+  if (stage === "success") {
+    return (
+      <SuccessModal
+        title="Transfer Sent"
+        subtitle={`₦${formatAmount(parseFloat(amount) || 0)} was sent to ${recipientName}.`}
+        onPrimary={onSuccess}
+      />
+    );
+  }
 
   if (stage === "pin") {
     return (
@@ -337,69 +376,70 @@ function TransferFlow({ balance, onClose, onSuccess }: { balance: number; onClos
     );
   }
 
-  if (stage === "amount" && recipient) {
-    return (
-      <Modal title="Transfer" onClose={onClose}>
-        <div className="flex items-center gap-2.5 rounded-2xl bg-brand-pale p-3.5">
+  return (
+    <Modal title="Transfer" onClose={onClose}>
+      <p className="text-sm text-brand-dark/55">Send money to another AjoPay user instantly.</p>
+      <label className="mb-1.5 mt-4 block text-xs font-bold text-brand-dark">Recipient Account Number</label>
+      <div className="relative">
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={10}
+          autoFocus
+          value={accountNumber}
+          onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+          placeholder="0123456789"
+          className="w-full rounded-xl border border-brand-dark/15 bg-white px-4 py-3 pr-10 text-sm text-brand-dark outline-none focus:border-brand-dark"
+        />
+        {lookupStatus === "searching" && (
+          <div className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-brand-accent border-t-transparent" />
+        )}
+        {lookupStatus === "found" && <CheckCircle2 size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-accent" />}
+      </div>
+
+      {lookupStatus === "notFound" && <p className="mt-2 text-xs font-semibold text-red-500">No AjoPay account found with that number.</p>}
+
+      {lookupStatus === "found" && recipient && (
+        <div className="mt-3 flex items-center gap-2.5 rounded-2xl bg-brand-pale p-3.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand font-display text-sm font-bold text-brand-dark">
             {recipient.first_name?.[0]?.toUpperCase() ?? "?"}
           </span>
           <p className="text-sm font-bold text-brand-dark">{recipientName}</p>
         </div>
-        <p className="mt-4 text-sm text-brand-dark/55">Available balance: ₦{formatAmount(balance)}</p>
-        <div className="mt-2 flex items-center rounded-xl border border-brand-dark/15 bg-white px-4 py-3">
-          <span className="mr-1 text-sm font-bold text-brand-dark/50">₦</span>
-          <input
-            type="number"
-            autoFocus
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
-            className="w-full text-sm text-brand-dark outline-none"
-          />
-        </div>
-        <input
-          type="text"
-          value={narration}
-          onChange={(e) => setNarration(e.target.value)}
-          placeholder="What's it for? (optional)"
-          className="mt-3 w-full rounded-xl border border-brand-dark/15 bg-white px-4 py-3 text-sm text-brand-dark outline-none placeholder:text-brand-dark/30"
-        />
-        {error && <p className="mt-2 text-xs font-semibold text-red-500">{error}</p>}
-        <button
-          type="button"
-          onClick={handleContinue}
-          disabled={!amount || parseFloat(amount) <= 0}
-          className="mt-5 w-full rounded-full bg-brand py-3 text-sm font-bold text-brand-dark transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
-        >
-          Continue
-        </button>
-      </Modal>
-    );
-  }
+      )}
 
-  return (
-    <Modal title="Transfer" onClose={onClose}>
-      <p className="text-sm text-brand-dark/55">Send money to another AjoPay user instantly.</p>
-      <label className="mb-1.5 mt-4 block text-xs font-bold text-brand-dark">Recipient Account Number</label>
-      <input
-        type="text"
-        inputMode="numeric"
-        maxLength={10}
-        autoFocus
-        value={accountNumber}
-        onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
-        placeholder="0123456789"
-        className="w-full rounded-xl border border-brand-dark/15 bg-white px-4 py-3 text-sm text-brand-dark outline-none focus:border-brand-dark"
-      />
-      {error && <p className="mt-2 text-xs font-semibold text-red-500">{error}</p>}
+      {lookupStatus === "found" && (
+        <>
+          <p className="mt-5 text-sm text-brand-dark/55">Available balance: ₦{formatAmount(balance)}</p>
+          <div className="mt-2 flex items-center rounded-xl border border-brand-dark/15 bg-white px-4 py-3">
+            <span className="mr-1 text-sm font-bold text-brand-dark/50">₦</span>
+            <input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              className="w-full text-sm text-brand-dark outline-none"
+            />
+          </div>
+          <input
+            type="text"
+            value={narration}
+            onChange={(e) => setNarration(e.target.value)}
+            placeholder="What's it for? (optional)"
+            className="mt-3 w-full rounded-xl border border-brand-dark/15 bg-white px-4 py-3 text-sm text-brand-dark outline-none placeholder:text-brand-dark/30"
+          />
+        </>
+      )}
+
+      {error && <p className="mt-3 text-xs font-semibold text-red-500">{error}</p>}
+
       <button
         type="button"
-        onClick={handleLookup}
-        disabled={accountNumber.length !== 10 || isLookingUp}
-        className="mt-5 w-full rounded-full border border-brand-dark/15 py-3 text-sm font-bold text-brand-dark disabled:opacity-40"
+        onClick={handleContinue}
+        disabled={lookupStatus !== "found" || !amount || parseFloat(amount) <= 0}
+        className="mt-5 w-full rounded-full bg-brand py-3 text-sm font-bold text-brand-dark transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:hover:scale-100"
       >
-        {isLookingUp ? "Looking up…" : "Find Account"}
+        Continue
       </button>
     </Modal>
   );
