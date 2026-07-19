@@ -91,11 +91,12 @@ class UserRepository {
   }
 
   /// Uploads a new profile picture. Throws [ApiException] on failure.
-  Future<UserProfile> uploadAvatar({required List<int> bytes, required String filename}) async {
+  Future<UserProfile> uploadAvatar({required List<int> bytes, required String filename, String? contentType}) async {
     final response = await _apiClient.postMultipart(
       ApiConstants.avatar,
       fileBytes: bytes,
       filename: filename,
+      contentType: contentType,
       headers: await _secureStorage.authHeaders(),
     );
     return _parseUser(response);

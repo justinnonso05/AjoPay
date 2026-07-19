@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../config/env_config.dart';
 
 /// Thrown for any non-2xx response or network failure, with a
@@ -144,14 +145,25 @@ class ApiClient {
     required List<int> fileBytes,
     required String filename,
     String fileFieldName = 'file',
+    String? contentType,
     Map<String, String>? headers,
   }) async {
     final uri = EnvConfig.uri(path);
     late final http.Response response;
     try {
+      // Without an explicit contentType, MultipartFile.fromBytes defaults
+      // to application/octet-stream — servers that validate the upload is
+      // actually an image (e.g. FastAPI's UploadFile.content_type check)
+      // reject that with "file is not an image".
+      final resolvedContentType = contentType ?? _guessImageContentType(filename);
       final request = http.MultipartRequest('POST', uri)
         ..headers.addAll({'Accept': 'application/json', ...?headers})
-        ..files.add(http.MultipartFile.fromBytes(fileFieldName, fileBytes, filename: filename));
+        ..files.add(http.MultipartFile.fromBytes(
+          fileFieldName,
+          fileBytes,
+          filename: filename,
+          contentType: resolvedContentType != null ? MediaType.parse(resolvedContentType) : null,
+        ));
       final streamed = await _client.send(request).timeout(const Duration(seconds: 30));
       response = await http.Response.fromStream(streamed);
     } on SocketException {
@@ -161,6 +173,25 @@ class ApiClient {
     }
 
     return _decode(response);
+  }
+
+  static String? _guessImageContentType(String filename) {
+    final ext = filename.toLowerCase().split('.').last;
+    switch (ext) {
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'heic':
+        return 'image/heic';
+      default:
+        return null;
+    }
   }
 
   Map<String, dynamic> _decode(http.Response response) {

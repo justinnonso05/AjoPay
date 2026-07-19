@@ -38,6 +38,7 @@ dependencies:
   flutter_riverpod: ^3.3.2
   flutter_dotenv: ^5.2.0
   http: ^1.2.1
+  http_parser: ^4.0.2
   flutter_secure_storage: ^9.2.4
   web_socket_channel: ^3.0.3
   qr_flutter: ^4.1.0

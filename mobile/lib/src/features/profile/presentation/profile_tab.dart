@@ -197,7 +197,7 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
     setState(() => _isUploadingAvatar = true);
     try {
       final bytes = await picked.readAsBytes();
-      final updated = await ref.read(userRepositoryProvider).uploadAvatar(bytes: bytes, filename: picked.name);
+      final updated = await ref.read(userRepositoryProvider).uploadAvatar(bytes: bytes, filename: picked.name, contentType: picked.mimeType);
       ref.read(currentUserProvider.notifier).state = updated;
       ref.read(userProfileControllerProvider.notifier).refresh();
     } on ApiException catch (e) {
