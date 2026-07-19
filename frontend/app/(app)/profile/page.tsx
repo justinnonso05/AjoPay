@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Building2,
   Calendar,
+  Camera,
   ChevronRight,
   FileText,
   Globe,
@@ -15,6 +16,7 @@ import {
   LogOut,
   Mail,
   MailPlus,
+  Pencil,
   Phone,
   PlusCircle,
   Receipt,
@@ -23,15 +25,38 @@ import {
   Wallet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { clearToken } from "@/lib/auth";
+import { useRef, useState } from "react";
+import { EditProfileModal } from "@/components/app/edit-profile-modal";
+import { api, ApiError, endpoints } from "@/lib/api";
+import { authHeaders, clearToken } from "@/lib/auth";
 import { formatShortDate } from "@/lib/format";
 import { useInvites } from "@/lib/hooks/use-invites";
 import { useProfile } from "@/lib/hooks/use-profile";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { profile, isLoading } = useProfile();
+  const { profile, isLoading, refresh } = useProfile();
   const { invites } = useInvites();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setIsUploadingAvatar(true);
+    setAvatarError(null);
+    try {
+      await api.postFile(endpoints.avatar, file, authHeaders());
+      await refresh();
+    } catch (err) {
+      setAvatarError(err instanceof ApiError ? err.message : "Couldn't upload your photo. Please try again.");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 sm:px-10 sm:py-10">
@@ -42,13 +67,34 @@ export default function ProfilePage() {
           <div className="h-40 animate-pulse rounded-card bg-white" />
         ) : (
           <div className="rounded-card bg-white p-6 text-center shadow-sm">
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-pale font-display text-2xl font-bold text-brand-accent">
-              {profile.first_name?.[0]?.toUpperCase() ?? "?"}
-            </span>
-            <div className="mt-3 flex items-center justify-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAvatar}
+              className="relative mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-pale font-display text-2xl font-bold text-brand-accent"
+            >
+              {profile.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- remote Cloudinary URL, not a static/local asset
+                <img src={profile.avatar_url} alt="" className="h-16 w-16 rounded-full object-cover" />
+              ) : (
+                (profile.first_name?.[0]?.toUpperCase() ?? "?")
+              )}
+              <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-brand-accent text-white ring-2 ring-white">
+                {isUploadingAvatar ? (
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Camera size={12} />
+                )}
+              </span>
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+            {avatarError && <p className="mt-2 text-xs font-semibold text-red-500">{avatarError}</p>}
+
+            <button type="button" onClick={() => setShowEditProfile(true)} className="mt-3 flex items-center justify-center gap-1.5">
               <p className="font-display text-lg font-bold text-brand-dark">{`${profile.first_name} ${profile.last_name}`.trim()}</p>
               {profile.kyc_status && <BadgeCheck size={17} className="text-brand-accent" />}
-            </div>
+              <Pencil size={13} className="text-brand-dark/30" />
+            </button>
             {profile.kyc_status && <p className="text-xs font-bold text-brand-accent">BVN Verified</p>}
 
             <div className="mt-4 space-y-2 border-t border-brand-dark/5 pt-4 text-left">
@@ -59,6 +105,17 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {showEditProfile && profile && (
+        <EditProfileModal
+          profile={profile}
+          onClose={() => setShowEditProfile(false)}
+          onSaved={() => {
+            setShowEditProfile(false);
+            refresh();
+          }}
+        />
+      )}
 
       <SettingsGroup title="Wallet">
         <SettingsRow icon={Wallet} label="Wallet Balance" onClick={() => router.push("/wallet")} />

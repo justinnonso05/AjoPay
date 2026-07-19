@@ -70,6 +70,32 @@ class UserRepository {
     return _parseUser(response);
   }
 
+  /// Updates basic profile fields. Only non-null args are sent, so leaving
+  /// one out preserves whatever the backend already has for it.
+  Future<UserProfile> updateProfile({String? firstName, String? lastName, String? phone}) async {
+    final response = await _apiClient.patch(
+      ApiConstants.me,
+      body: {
+        if (firstName != null) 'first_name': firstName,
+        if (lastName != null) 'last_name': lastName,
+        if (phone != null) 'phone': phone,
+      },
+      headers: await _secureStorage.authHeaders(),
+    );
+    return _parseUser(response);
+  }
+
+  /// Uploads a new profile picture. Throws [ApiException] on failure.
+  Future<UserProfile> uploadAvatar({required List<int> bytes, required String filename}) async {
+    final response = await _apiClient.postMultipart(
+      ApiConstants.avatar,
+      fileBytes: bytes,
+      filename: filename,
+      headers: await _secureStorage.authHeaders(),
+    );
+    return _parseUser(response);
+  }
+
   /// Looks up a user by exact email or username. Returns `null` if no user
   /// matches (the backend 404s / errors for a non-match rather than
   /// returning an empty result).

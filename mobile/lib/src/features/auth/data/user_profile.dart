@@ -5,6 +5,7 @@ class UserProfile {
   final String lastName;
   final String email;
   final String? phone;
+  final String? avatarUrl;
   final String walletBalance;
   final String? personalReservedAccountNumber;
   final String? personalReservedAccountBank;
@@ -25,6 +26,7 @@ class UserProfile {
     required this.lastName,
     required this.email,
     this.phone,
+    this.avatarUrl,
     required this.walletBalance,
     this.personalReservedAccountNumber,
     this.personalReservedAccountBank,
@@ -47,6 +49,7 @@ class UserProfile {
       lastName: json['last_name']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       phone: json['phone']?.toString(),
+      avatarUrl: json['avatar_url']?.toString(),
       walletBalance: json['wallet_balance']?.toString() ?? '0',
       personalReservedAccountNumber: json['personal_reserved_account_number']?.toString(),
       personalReservedAccountBank: json['personal_reserved_account_bank']?.toString(),

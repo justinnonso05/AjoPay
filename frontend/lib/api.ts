@@ -92,12 +92,26 @@ async function requestList(path: string, headers?: HeadersInit): Promise<unknown
   return decode(response) as never;
 }
 
+/** For file uploads (multipart/form-data) — the browser sets its own Content-Type with boundary, so it must not be overridden. */
+async function requestMultipart(path: string, file: File, headers?: HeadersInit): Promise<Envelope> {
+  const form = new FormData();
+  form.append("file", file);
+  let response: Response;
+  try {
+    response = await fetch(url(path), { method: "POST", body: form, headers });
+  } catch {
+    throw new ApiError("Unable to reach the server. Check your connection and try again.");
+  }
+  return decode(response);
+}
+
 export const api = {
   get: (path: string, headers?: HeadersInit) => request(path, { method: "GET", headers }),
   post: (path: string, body?: unknown, headers?: HeadersInit) =>
     request(path, { method: "POST", body: JSON.stringify(body ?? {}), headers }),
   patch: (path: string, body?: unknown, headers?: HeadersInit) =>
     request(path, { method: "PATCH", body: JSON.stringify(body ?? {}), headers }),
+  postFile: (path: string, file: File, headers?: HeadersInit) => requestMultipart(path, file, headers),
   getList: (path: string, headers?: HeadersInit) => requestList(path, headers),
 };
 
@@ -111,6 +125,7 @@ export const endpoints = {
 
   // User
   me: `${API_PREFIX}/users/me`,
+  avatar: `${API_PREFIX}/users/me/avatar`,
   myGroups: `${API_PREFIX}/users/me/groups`,
   mockKycVerify: `${API_PREFIX}/users/me/kyc/mock-verify`,
   searchUser: (q: string) => `${API_PREFIX}/users/search?q=${encodeURIComponent(q)}`,

@@ -10,6 +10,7 @@ export type Profile = {
   last_name: string;
   email: string;
   phone?: string | null;
+  avatar_url?: string | null;
   wallet_balance: string;
   personal_reserved_account_number?: string | null;
   personal_reserved_account_bank?: string | null;

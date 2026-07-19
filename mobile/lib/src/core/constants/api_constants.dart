@@ -25,6 +25,7 @@ class ApiConstants {
 
   // User endpoints
   static String get me => '$apiPrefix/users/me';
+  static String get avatar => '$apiPrefix/users/me/avatar';
   static String get myGroups => '$apiPrefix/users/me/groups';
   static String get mockKycVerify => '$apiPrefix/users/me/kyc/mock-verify';
   static String get bankAccount => '$apiPrefix/members/bank-account';

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/widgets/skeleton_loader.dart';
@@ -13,6 +15,7 @@ import '../../home/data/home_controller.dart';
 import '../../notifications/data/notifications_repository.dart';
 import '../../shell/data/shell_tab_provider.dart';
 import '../../wallet/data/wallet_controller.dart';
+import 'widgets/edit_profile_sheet.dart';
 
 class ProfileTab extends ConsumerWidget {
   const ProfileTab({super.key});
@@ -162,13 +165,47 @@ class ProfileTab extends ConsumerWidget {
 
 }
 
-class _ProfileHeader extends StatelessWidget {
+class _ProfileHeader extends ConsumerStatefulWidget {
   final UserProfile profile;
 
   const _ProfileHeader({required this.profile});
 
   @override
+  ConsumerState<_ProfileHeader> createState() => _ProfileHeaderState();
+}
+
+class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
+  bool _isUploadingAvatar = false;
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1024, imageQuality: 85);
+    if (picked == null || !mounted) return;
+
+    setState(() => _isUploadingAvatar = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final updated = await ref.read(userRepositoryProvider).uploadAvatar(bytes: bytes, filename: picked.name);
+      ref.read(currentUserProvider.notifier).state = updated;
+      ref.read(userProfileControllerProvider.notifier).refresh();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message, style: const TextStyle(color: Colors.white)), backgroundColor: AppColors.darkGreen));
+    } finally {
+      if (mounted) setState(() => _isUploadingAvatar = false);
+    }
+  }
+
+  Future<void> _editProfile() async {
+    final updated = await EditProfileSheet.show(context, widget.profile);
+    if (updated == null || !mounted) return;
+    ref.read(currentUserProvider.notifier).state = updated;
+    ref.read(userProfileControllerProvider.notifier).refresh();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final profile = widget.profile;
     final firstName = profile.firstName;
     final lastName = profile.lastName;
     final initial = firstName.isNotEmpty ? firstName[0] : '?';
@@ -179,24 +216,65 @@ class _ProfileHeader extends StatelessWidget {
       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.xl), boxShadow: cardShadow()),
       child: Column(
         children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: const BoxDecoration(color: AppColors.paleGreen, shape: BoxShape.circle),
-            child: Center(
-              child: Text(initial.toUpperCase(), style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.accentGreen)),
+          GestureDetector(
+            onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppColors.paleGreen,
+                    shape: BoxShape.circle,
+                    image: profile.avatarUrl != null ? DecorationImage(image: NetworkImage(profile.avatarUrl!), fit: BoxFit.cover) : null,
+                  ),
+                  child: profile.avatarUrl == null
+                      ? Center(
+                          child: Text(initial.toUpperCase(), style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 26, fontWeight: FontWeight.bold, color: AppColors.accentGreen)),
+                        )
+                      : (_isUploadingAvatar
+                          ? Container(
+                              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
+                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                            )
+                          : null),
+                ),
+                if (_isUploadingAvatar && profile.avatarUrl == null)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
+                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                    ),
+                  ),
+                Positioned(
+                  bottom: -2,
+                  right: -2,
+                  child: Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(color: AppColors.accentGreen, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+                    child: const Icon(Icons.camera_alt_rounded, size: 13, color: Colors.white),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('$firstName $lastName'.trim(), style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-              if (profile.kycStatus == true) ...[
+          GestureDetector(
+            onTap: _editProfile,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('$firstName $lastName'.trim(), style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                if (profile.kycStatus == true) ...[
+                  const SizedBox(width: 6),
+                  const Icon(Icons.verified_rounded, color: AppColors.accentGreen, size: 18),
+                ],
                 const SizedBox(width: 6),
-                const Icon(Icons.verified_rounded, color: AppColors.accentGreen, size: 18),
+                const Icon(Icons.edit_outlined, size: 15, color: AppColors.textMuted),
               ],
-            ],
+            ),
           ),
           if (profile.kycStatus == true) ...[
             const SizedBox(height: 2),
