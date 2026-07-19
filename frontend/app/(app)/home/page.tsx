@@ -16,7 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/app/empty-state";
 import { SectionHeader } from "@/components/app/section-header";
 import { StatusPill } from "@/components/app/status-pill";
@@ -24,6 +24,7 @@ import { formatAmount, formatFriendlyDate, formatShortDate, greeting } from "@/l
 import { useGroups, type GroupSummary } from "@/lib/hooks/use-groups";
 import { useInvites } from "@/lib/hooks/use-invites";
 import { useProfile } from "@/lib/hooks/use-profile";
+import { useRotations } from "@/lib/hooks/use-rotations";
 import { useWalletTransactions } from "@/lib/hooks/use-wallet-transactions";
 import { isCreditTransaction } from "@/lib/types";
 
@@ -147,10 +148,10 @@ export default function HomePage() {
         <QuickActions groupId={selected?.group.id ?? null} isAdmin={selected?.membership.is_admin ?? false} />
       </div>
 
-      {selected && (
+      {selected && selected.group.status === "active" && (
         <div className="mt-8 space-y-3">
-          <SectionHeader title="Upcoming Contributions" />
-          <UpcomingContributions summary={selected} />
+          <SectionHeader title="Upcoming Payouts" />
+          <UpcomingPayouts groupId={selected.group.id} />
         </div>
       )}
 
@@ -279,38 +280,39 @@ function QuickActions({ groupId, isAdmin }: { groupId: string | null; isAdmin: b
   );
 }
 
-function UpcomingContributions({ summary }: { summary: GroupSummary }) {
-  const { group, membership } = summary;
-  // Lazy-initialized once per mount — the sanctioned way to capture an
-  // impure "now" value without re-reading it (and re-triggering the
-  // purity lint) on every render.
-  const [now] = useState(() => Date.now());
-  const dates = useMemo(() => {
-    const anchor = group.next_payout_date ? new Date(group.next_payout_date) : new Date(now + 7 * 24 * 60 * 60 * 1000);
-    const result: Date[] = [anchor];
-    for (let i = 1; i < 3; i++) {
-      const prev = result[result.length - 1];
-      const next = new Date(prev);
-      if (group.cycle_frequency === "monthly") next.setMonth(next.getMonth() + 1);
-      else if (group.cycle_frequency === "yearly") next.setFullYear(next.getFullYear() + 1);
-      else next.setDate(next.getDate() + 7);
-      result.push(next);
-    }
-    return result;
-  }, [group.next_payout_date, group.cycle_frequency, now]);
+/** The next few entries from the group's real payout rotation
+ * (`GET /groups/{id}/rotations`) — who gets paid and when, sourced from
+ * the backend rather than guessed client-side. */
+function UpcomingPayouts({ groupId }: { groupId: string }) {
+  const { rotations, isLoading } = useRotations(groupId);
+
+  if (isLoading) return <div className="h-32 animate-pulse rounded-card bg-white shadow-sm" />;
+
+  const entries = rotations
+    .filter((r) => !r.is_completed)
+    .sort((a, b) => a.cycle_number - b.cycle_number)
+    .slice(0, 3);
+
+  if (entries.length === 0) {
+    return (
+      <div className="rounded-card bg-white shadow-sm">
+        <EmptyState icon={Calendar} title="No upcoming payouts." subtitle="The rotation schedule will show up here once it starts." />
+      </div>
+    );
+  }
 
   return (
     <div className="divide-y divide-brand-dark/5 rounded-card bg-white shadow-sm">
-      {dates.map((date, i) => (
-        <div key={i} className="flex items-center gap-3 px-5 py-4">
+      {entries.map((entry) => (
+        <div key={entry.cycle_number} className="flex items-center gap-3 px-5 py-4">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-pale">
             <Calendar size={16} className="text-brand-accent" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-brand-dark">{formatFriendlyDate(date)}</p>
-            <p className="text-xs text-brand-dark/50">₦{formatAmount(membership.contribution_amount)}</p>
+            <p className="truncate text-sm font-bold text-brand-dark">{`${entry.first_name} ${entry.last_name}`.trim() || `@${entry.username}`}</p>
+            <p className="text-xs text-brand-dark/50">{entry.payout_date ? formatFriendlyDate(new Date(entry.payout_date)) : "Date TBD"}</p>
           </div>
-          <StatusPill label={i === 0 ? "Pending" : "Upcoming"} tone={i === 0 ? "warning" : "neutral"} />
+          <StatusPill label={entry.is_current ? "Next" : "Upcoming"} tone={entry.is_current ? "success" : "neutral"} />
         </div>
       ))}
     </div>

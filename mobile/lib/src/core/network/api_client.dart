@@ -118,6 +118,32 @@ class ApiClient {
     return _decode(response);
   }
 
+  /// Uploads a file as `multipart/form-data` — used for the avatar upload
+  /// endpoint, which expects the raw bytes under the `file` field.
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    required List<int> fileBytes,
+    required String filename,
+    String fileFieldName = 'file',
+    Map<String, String>? headers,
+  }) async {
+    final uri = EnvConfig.uri(path);
+    late final http.Response response;
+    try {
+      final request = http.MultipartRequest('POST', uri)
+        ..headers.addAll({'Accept': 'application/json', ...?headers})
+        ..files.add(http.MultipartFile.fromBytes(fileFieldName, fileBytes, filename: filename));
+      final streamed = await _client.send(request).timeout(const Duration(seconds: 30));
+      response = await http.Response.fromStream(streamed);
+    } on SocketException {
+      throw ApiException('Unable to reach the server. Check your connection and try again.');
+    } on Exception {
+      throw ApiException('Unable to reach the server. Check your connection and try again.');
+    }
+
+    return _decode(response);
+  }
+
   Map<String, dynamic> _decode(http.Response response) {
     Map<String, dynamic> json = const {};
     if (response.body.isNotEmpty) {

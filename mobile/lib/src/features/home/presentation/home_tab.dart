@@ -13,6 +13,7 @@ import '../../../routing/app_router.dart';
 import '../../auth/data/user_repository.dart';
 import '../../groups/data/group_invites_controller.dart';
 import '../../groups/data/group_models.dart';
+import '../../groups/data/group_repository.dart';
 import '../../auth/data/user_profile.dart';
 import '../../shell/data/shell_tab_provider.dart';
 import '../../wallet/data/wallet_controller.dart';
@@ -121,10 +122,10 @@ class _HomeTabState extends ConsumerState<HomeTab> {
                   const SizedBox(height: 14),
                   _QuickActions(hasGroup: selectedGroupId != null, groupId: selectedGroupId, isAdmin: isSelectedGroupAdmin),
                   const SizedBox(height: 28),
-                  if (selectedGroupId != null) ...[
-                    const SectionHeader(title: 'Upcoming Contributions'),
+                  if (selectedGroupId != null && homeState.summaries[selectedIndex].group.status == 'active') ...[
+                    const SectionHeader(title: 'Upcoming Payouts'),
                     const SizedBox(height: 12),
-                    _UpcomingContributions(summary: homeState.summaries[selectedIndex]),
+                    _UpcomingPayouts(key: ValueKey(selectedGroupId), groupId: selectedGroupId),
                     const SizedBox(height: 28),
                   ],
                   const SectionHeader(title: 'Recent Activity'),
@@ -554,29 +555,58 @@ class _QuickActions extends StatelessWidget {
   }
 }
 
-class _UpcomingContributions extends StatelessWidget {
-  final HomeSummary summary;
+/// Shows the next few entries from the group's real payout rotation
+/// (`GET /groups/{id}/rotations`) — who gets paid and when, sourced from
+/// the backend rather than guessed client-side.
+class _UpcomingPayouts extends ConsumerStatefulWidget {
+  final String groupId;
 
-  const _UpcomingContributions({required this.summary});
+  const _UpcomingPayouts({super.key, required this.groupId});
+
+  @override
+  ConsumerState<_UpcomingPayouts> createState() => _UpcomingPayoutsState();
+}
+
+class _UpcomingPayoutsState extends ConsumerState<_UpcomingPayouts> {
+  List<GroupRotationEntry> _rotations = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final rotations = await ref.read(groupRepositoryProvider).getRotations(widget.groupId);
+      if (!mounted) return;
+      setState(() {
+        _rotations = rotations;
+        _isLoading = false;
+      });
+    } catch (_) {
+      // Rotation schedule can genuinely be empty/unavailable — treat as "nothing to show".
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final group = summary.group;
-    final membership = summary.membership;
+    if (_isLoading) return const SkeletonCard(height: 120);
 
-    // No contribution-schedule endpoint exists yet — project the next few
-    // occurrences client-side from the group's cadence as a reasonable stand-in.
-    final anchor = group.nextPayoutDate ?? DateTime.now().add(const Duration(days: 7));
-    final dates = <DateTime>[anchor];
-    for (var i = 1; i < 3; i++) {
-      dates.add(_advance(dates.last, group.cycleFrequency));
+    final upcoming = _rotations.where((r) => !r.isCompleted).toList()..sort((a, b) => a.cycleNumber.compareTo(b.cycleNumber));
+    final entries = upcoming.take(3).toList();
+
+    if (entries.isEmpty) {
+      return const EmptyState(icon: Icons.event_rounded, title: 'No upcoming payouts.', subtitle: 'The rotation schedule will show up here once it starts.');
     }
 
     return Container(
       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.xl), boxShadow: cardShadow()),
       child: Column(
         children: [
-          for (var i = 0; i < dates.length; i++) ...[
+          for (var i = 0; i < entries.length; i++) ...[
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -592,32 +622,26 @@ class _UpcomingContributions extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(formatFriendlyDate(dates[i]), style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                        Text('₦${formatAmount(membership.contributionAmount)}', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 12, color: AppColors.textSecondary)),
+                        Text(
+                          entries[i].fullName.isNotEmpty ? entries[i].fullName : '@${entries[i].username}',
+                          style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                        Text(
+                          entries[i].payoutDate != null ? formatFriendlyDate(entries[i].payoutDate!) : 'Date TBD',
+                          style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 12, color: AppColors.textSecondary),
+                        ),
                       ],
                     ),
                   ),
-                  StatusPill(label: i == 0 ? 'Pending' : 'Upcoming', tone: i == 0 ? PillTone.warning : PillTone.neutral),
+                  StatusPill(label: entries[i].isCurrent ? 'Next' : 'Upcoming', tone: entries[i].isCurrent ? PillTone.success : PillTone.neutral),
                 ],
               ),
             ),
-            if (i != dates.length - 1) Divider(height: 1, color: Colors.grey[100]),
+            if (i != entries.length - 1) Divider(height: 1, color: Colors.grey[100]),
           ],
         ],
       ),
     );
-  }
-
-  DateTime _advance(DateTime date, CycleFrequency? frequency) {
-    switch (frequency) {
-      case CycleFrequency.monthly:
-        return DateTime(date.year, date.month + 1, date.day);
-      case CycleFrequency.yearly:
-        return DateTime(date.year + 1, date.month, date.day);
-      case CycleFrequency.weekly:
-      default:
-        return date.add(const Duration(days: 7));
-    }
   }
 }
 
