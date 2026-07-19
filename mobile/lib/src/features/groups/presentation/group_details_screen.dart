@@ -17,6 +17,7 @@ import '../data/group_models.dart';
 import '../data/group_repository.dart';
 import 'widgets/edit_group_sheet.dart';
 import 'widgets/send_invite_sheet.dart';
+import 'widgets/start_group_sheet.dart';
 
 class GroupDetailsScreen extends ConsumerStatefulWidget {
   final String groupId;
@@ -103,31 +104,10 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
   }
 
   Future<void> _startGroup() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Start this group?'),
-        content: const Text('This locks in the payout rotation order and begins the first contribution cycle. This cannot be undone.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Start Group')),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _isBusy = true);
-    try {
-      final updated = await ref.read(groupRepositoryProvider).startGroup(widget.groupId, randomize: true);
-      setState(() => _group = updated);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group started!'), backgroundColor: AppColors.darkGreen));
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message), backgroundColor: AppColors.darkGreen));
-    } finally {
-      if (mounted) setState(() => _isBusy = false);
-    }
+    final updated = await StartGroupSheet.show(context, widget.groupId, _members);
+    if (updated == null || !mounted) return;
+    setState(() => _group = updated);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Group started!'), backgroundColor: AppColors.darkGreen));
   }
 
   Future<void> _rotateInviteCode() async {

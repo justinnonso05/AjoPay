@@ -14,6 +14,7 @@ import { useWalletTransactions } from "@/lib/hooks/use-wallet-transactions";
 import { SHORTFALL_POLICY_DESCRIPTIONS } from "@/lib/types";
 import { EditGroupModal } from "./edit-group-modal";
 import { SendInviteModal } from "./send-invite-modal";
+import { StartGroupModal } from "./start-group-modal";
 
 export default function GroupDetailsPage({ params }: { params: Promise<{ groupId: string }> }) {
   const { groupId } = use(params);
@@ -37,6 +38,7 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
   const [showMembers, setShowMembers] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
+  const [showStartGroup, setShowStartGroup] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [remindingUserId, setRemindingUserId] = useState<string | null>(null);
 
@@ -63,17 +65,10 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
     }
   };
 
-  const handleStartGroup = async () => {
-    if (!confirm("Start this group? This locks in the payout rotation order and begins the first contribution cycle. This cannot be undone.")) return;
-    setIsBusy(true);
-    try {
-      await startGroup();
-      showToast("Group started!");
-    } catch (err) {
-      setBusyError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setIsBusy(false);
-    }
+  const handleStartGroup = async (options: { randomize: boolean; manualOrder?: string[] }) => {
+    await startGroup(options);
+    setShowStartGroup(false);
+    showToast("Group started!");
   };
 
   const handleRotateCode = async () => {
@@ -207,7 +202,7 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
               <button
                 type="button"
                 disabled={isBusy}
-                onClick={handleStartGroup}
+                onClick={() => setShowStartGroup(true)}
                 className="flex-1 rounded-full border border-brand-accent py-2.5 text-xs font-bold text-brand-accent disabled:opacity-50"
               >
                 Start Group
@@ -369,6 +364,8 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
           }}
         />
       )}
+
+      {showStartGroup && <StartGroupModal members={members} onClose={() => setShowStartGroup(false)} onStart={handleStartGroup} />}
     </div>
   );
 }

@@ -498,7 +498,7 @@ class _TransactionTile extends StatelessWidget {
             ),
           ),
           Text(
-            '${isCredit ? '+' : '-'}₦${formatAmount(transaction.amount)}',
+            '${isCredit ? '+' : '-'}₦${formatAmount(transaction.amount.abs())}',
             style: GoogleFonts.spaceGrotesk(fontSize: 13, fontWeight: FontWeight.bold, color: isCredit ? AppColors.accentGreen : AppColors.textPrimary),
           ),
         ],

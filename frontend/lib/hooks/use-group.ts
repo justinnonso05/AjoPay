@@ -67,10 +67,17 @@ export function useGroup(groupId: string) {
     [groupId, refreshPending, refreshMembers],
   );
 
-  const startGroup = useCallback(async () => {
-    const res = await api.post(endpoints.startGroup(groupId), { randomize: true }, authHeaders());
-    setGroup(res.data as Group);
-  }, [groupId]);
+  const startGroup = useCallback(
+    async (options: { randomize: boolean; manualOrder?: string[] }) => {
+      const res = await api.post(
+        endpoints.startGroup(groupId),
+        { randomize: options.randomize, ...(options.manualOrder ? { manual_order: options.manualOrder } : {}) },
+        authHeaders(),
+      );
+      setGroup(res.data as Group);
+    },
+    [groupId],
+  );
 
   const rotateInviteCode = useCallback(async () => {
     const res = await api.post(endpoints.rotateInviteCode(groupId), {}, authHeaders());

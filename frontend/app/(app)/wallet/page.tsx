@@ -117,7 +117,7 @@ export default function WalletPage() {
                     <p className="text-xs text-brand-dark/40">{formatShortDate(tx.created_at)}</p>
                   </div>
                   <p className={`text-sm font-bold ${credit ? "text-brand-accent" : "text-brand-dark"}`}>
-                    {credit ? "+" : "-"}₦{formatAmount(tx.amount)}
+                    {credit ? "+" : "-"}₦{formatAmount(Math.abs(tx.amount))}
                   </p>
                 </div>
               );

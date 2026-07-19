@@ -174,7 +174,7 @@ export default function HomePage() {
                     <p className="text-xs text-brand-dark/40">{formatShortDate(tx.created_at)}</p>
                   </div>
                   <p className={`text-sm font-bold ${credit ? "text-brand-accent" : "text-brand-dark"}`}>
-                    {credit ? "+" : "-"}₦{formatAmount(tx.amount)}
+                    {credit ? "+" : "-"}₦{formatAmount(Math.abs(tx.amount))}
                   </p>
                 </div>
               );
@@ -186,17 +186,13 @@ export default function HomePage() {
   );
 }
 
-function GroupCard({ summary, selected }: { summary: GroupSummary; selected: boolean }) {
+function GroupCard({ summary }: { summary: GroupSummary }) {
   const { membership, group, memberCount } = summary;
   const progress =
     group.member_cap && group.member_cap > 0 ? Math.min(1, group.pool_balance / (membership.contribution_amount * group.member_cap)) : null;
 
   return (
-    <div
-      className={`rounded-card bg-gradient-to-br from-brand to-brand-accent p-6 shadow-lg transition-all ${
-        selected ? "ring-2 ring-brand-dark ring-offset-2 ring-offset-soft-gray" : ""
-      }`}
-    >
+    <div className="h-full rounded-card bg-gradient-to-br from-brand to-brand-accent p-6 shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <p className="truncate font-display text-lg font-bold text-brand-dark">{membership.group_name}</p>
         <span className="shrink-0 rounded-lg bg-white/50 px-2.5 py-1 text-[11px] font-bold text-brand-dark">Round {group.current_cycle_number}</span>
