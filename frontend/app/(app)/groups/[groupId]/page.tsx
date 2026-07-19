@@ -239,13 +239,6 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
         <Link href={`/groups/${groupId}/chat`} className="block w-full rounded-full border border-brand-dark/15 py-3.5 text-center text-sm font-bold text-brand-dark">
           Open Group Chat
         </Link>
-        <button
-          type="button"
-          onClick={() => alert(isAdmin ? "As the admin, you need to transfer group ownership to another member before you can leave." : "Leaving a group is coming soon")}
-          className="w-full rounded-full bg-red-50 py-3.5 text-sm font-bold text-red-500"
-        >
-          Leave Group
-        </button>
       </div>
 
       {showMembers && (

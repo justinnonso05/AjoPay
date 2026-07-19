@@ -20,6 +20,7 @@ export type Profile = {
   payout_bank_account_number?: string | null;
   payout_bank_code?: string | null;
   payout_account_name?: string | null;
+  created_at?: string | null;
 };
 
 export type GroupMembership = {

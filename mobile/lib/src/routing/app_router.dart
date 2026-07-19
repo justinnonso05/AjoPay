@@ -24,6 +24,7 @@ import '../features/groups/presentation/my_groups_screen.dart';
 import '../features/groups/presentation/my_invites_screen.dart';
 import '../features/wallet/presentation/payout_bank_screen.dart';
 import '../features/wallet/presentation/payout_bank_otp_screen.dart';
+import '../features/profile/presentation/faq_screen.dart';
 import '../features/shell/presentation/main_shell.dart';
 
 enum AppRoute {
@@ -50,6 +51,7 @@ enum AppRoute {
   myInvites,
   payoutBank,
   payoutBankOtp,
+  faq,
   home,
 }
 
@@ -222,6 +224,11 @@ final goRouter = GoRouter(
           accountName: args['accountName']!,
         );
       },
+    ),
+    GoRoute(
+      path: '/faq',
+      name: AppRoute.faq.name,
+      builder: (context, state) => const FaqScreen(),
     ),
     GoRoute(
       path: '/home',

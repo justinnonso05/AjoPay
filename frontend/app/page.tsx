@@ -1,3 +1,4 @@
+import { FaqSection } from "@/components/faq-section";
 import { FeaturesGrid } from "@/components/features-grid";
 import { FinalCta } from "@/components/final-cta";
 import { Footer } from "@/components/footer";
@@ -19,6 +20,7 @@ export default function Home() {
         <SolutionSection />
         <HowItWorks />
         <FeaturesGrid />
+        <FaqSection />
         <FinalCta />
       </main>
       <Footer />

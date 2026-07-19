@@ -126,6 +126,7 @@ class ProfileTab extends ConsumerWidget {
               ),
               _SettingsRow(icon: Icons.notifications_none_rounded, label: 'Notification Settings', onTap: () => _comingSoon(context)),
               _SettingsRow(icon: Icons.language_rounded, label: 'Language', onTap: () => _comingSoon(context)),
+              _SettingsRow(icon: Icons.quiz_outlined, label: 'FAQ', onTap: () => context.pushNamed(AppRoute.faq.name)),
               _SettingsRow(icon: Icons.help_center_outlined, label: 'Help Center', onTap: () => _comingSoon(context)),
               _SettingsRow(icon: Icons.support_agent_rounded, label: 'Support', onTap: () => _comingSoon(context)),
               _SettingsRow(icon: Icons.privacy_tip_outlined, label: 'Privacy Policy', onTap: () => _comingSoon(context)),

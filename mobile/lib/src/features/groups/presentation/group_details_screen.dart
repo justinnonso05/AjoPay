@@ -258,37 +258,6 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
     );
   }
 
-  Future<void> _leaveGroup(bool isAdmin) async {
-    if (isAdmin) {
-      showDialog(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Transfer ownership first'),
-          content: const Text('As the admin, you need to transfer group ownership to another member before you can leave.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Got it'))],
-        ),
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Leave this group?'),
-        content: const Text("You'll lose access to its contributions and chat."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Leave')),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Leaving a group is coming soon'), backgroundColor: AppColors.darkGreen),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -458,16 +427,6 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
             ),
             child: Text('Open Group Chat', style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: TextButton(
-            onPressed: () => _leaveGroup(isCurrentUserAdmin),
-            style: TextButton.styleFrom(backgroundColor: AppColors.dangerPale, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))),
-            child: Text('Leave Group', style: GoogleFonts.spaceGrotesk(fontWeight: FontWeight.bold, color: AppColors.danger)),
           ),
         ),
       ],
