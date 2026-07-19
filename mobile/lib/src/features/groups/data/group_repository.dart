@@ -214,6 +214,42 @@ class GroupRepository {
     return GroupMember.fromJson(data);
   }
 
+  /// Gives your payout turn for [cycleNumber] to [toMemberId] instead.
+  /// PIN-confirmed. Note: there's currently no way to list or cancel a
+  /// pending delegation once sent — the recipient/admin approval side of
+  /// this isn't exposed by the backend yet (no endpoint to discover the
+  /// delegation's id), so this is initiate-only for now.
+  Future<String> delegateCycle(String groupId, int cycleNumber, {required String toMemberId, required String pin}) async {
+    final response = await _apiClient.post(
+      ApiConstants.delegateCycle(groupId, cycleNumber),
+      body: {'to_member_id': toMemberId, 'pin': pin},
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    final status = data is Map<String, dynamic> ? data['status']?.toString() : null;
+    return status ?? 'pending';
+  }
+
+  /// Requests to swap your upcoming payout cycle with [targetMemberId]'s
+  /// [targetCycleNumber]. PIN-confirmed. Same caveat as [delegateCycle] —
+  /// initiate-only, since there's no way to list pending swaps to respond
+  /// to or admin-approve yet.
+  Future<String> requestCycleSwap(
+    String groupId, {
+    required String targetMemberId,
+    required int targetCycleNumber,
+    required String pin,
+  }) async {
+    final response = await _apiClient.post(
+      ApiConstants.swapCycle(groupId),
+      body: {'target_member_id': targetMemberId, 'target_cycle_number': targetCycleNumber, 'pin': pin},
+      headers: await _secureStorage.authHeaders(),
+    );
+    final data = response['data'];
+    final status = data is Map<String, dynamic> ? data['status']?.toString() : null;
+    return status ?? 'pending';
+  }
+
   // --- Invites (direct, by email/username — separate from invite codes) ---
 
   Future<GroupInvite> sendInvite(String groupId, String emailOrUsername) async {

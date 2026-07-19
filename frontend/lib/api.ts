@@ -159,6 +159,9 @@ export const endpoints = {
   groupMembers: (groupId: string) => `${API_PREFIX}/groups/${groupId}/members`,
   groupRotations: (groupId: string) => `${API_PREFIX}/groups/${groupId}/rotations`,
   autoDebit: (groupId: string) => `${API_PREFIX}/groups/${groupId}/auto-debit`,
+  // Cycle management — note this lives under /cycles, not /groups.
+  delegateCycle: (groupId: string, cycleNumber: number) => `${API_PREFIX}/cycles/${groupId}/cycles/${cycleNumber}/delegate`,
+  swapCycle: (groupId: string) => `${API_PREFIX}/cycles/${groupId}/swap`,
   payFromWallet: (groupId: string) => `${API_PREFIX}/groups/${groupId}/pay-from-wallet`,
   generateDirectPayment: (groupId: string) => `${API_PREFIX}/groups/${groupId}/generate-direct-payment`,
   pendingMembers: (groupId: string) => `${API_PREFIX}/groups/${groupId}/members/pending`,

@@ -16,6 +16,7 @@ import '../../wallet/data/wallet_controller.dart';
 import '../data/contribution_status.dart';
 import '../data/group_models.dart';
 import '../data/group_repository.dart';
+import 'widgets/cycle_action_sheet.dart';
 import 'widgets/edit_group_sheet.dart';
 import 'widgets/send_invite_sheet.dart';
 import 'widgets/start_group_sheet.dart';
@@ -498,7 +499,7 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
         ],
         if (group.status == 'active') ...[
           const SizedBox(height: 20),
-          _PayoutScheduleCard(rotations: _rotations, isLoading: _isLoadingRotations),
+          _PayoutScheduleCard(groupId: widget.groupId, rotations: _rotations, isLoading: _isLoadingRotations, currentUserId: currentUserId),
         ],
         if (group.status == 'active' && currentMember != null) ...[
           const SizedBox(height: 20),
@@ -751,14 +752,16 @@ class _AdminToolsCard extends StatelessWidget {
   }
 }
 
-class _PayoutScheduleCard extends StatelessWidget {
+class _PayoutScheduleCard extends ConsumerWidget {
+  final String groupId;
   final List<GroupRotationEntry> rotations;
   final bool isLoading;
+  final String? currentUserId;
 
-  const _PayoutScheduleCard({required this.rotations, required this.isLoading});
+  const _PayoutScheduleCard({required this.groupId, required this.rotations, required this.isLoading, required this.currentUserId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(AppRadius.xl), boxShadow: cardShadow()),
@@ -773,7 +776,7 @@ class _PayoutScheduleCard extends StatelessWidget {
             Text('No rotation order yet.', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 12.5, color: AppColors.textMuted))
           else
             for (var i = 0; i < rotations.length; i++) ...[
-              _rotationRow(rotations[i]),
+              _rotationRow(context, rotations[i]),
               if (i != rotations.length - 1) Divider(height: 1, color: Colors.grey[100]),
             ],
         ],
@@ -781,47 +784,95 @@ class _PayoutScheduleCard extends StatelessWidget {
     );
   }
 
-  Widget _rotationRow(GroupRotationEntry entry) {
+  Widget _rotationRow(BuildContext context, GroupRotationEntry entry) {
+    final isMine = currentUserId != null && entry.userId == currentUserId;
+    final canAct = isMine && !entry.isCompleted;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: entry.isCurrent ? AppColors.brandGreen : (entry.isCompleted ? AppColors.paleGreen : AppColors.divider),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '${entry.cycleNumber}',
-              style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.darkGreen),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.fullName.isNotEmpty ? entry.fullName : '@${entry.username}',
-                  style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: entry.isCurrent ? AppColors.brandGreen : (entry.isCompleted ? AppColors.paleGreen : AppColors.divider),
+                  shape: BoxShape.circle,
                 ),
-                if (entry.payoutDate != null)
-                  Text(formatShortDate(entry.payoutDate!), style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 11, color: AppColors.textMuted)),
-              ],
-            ),
+                child: Text(
+                  '${entry.cycleNumber}',
+                  style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.darkGreen),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.fullName.isNotEmpty ? entry.fullName : '@${entry.username}',
+                      style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    ),
+                    if (entry.payoutDate != null)
+                      Text(formatShortDate(entry.payoutDate!), style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 11, color: AppColors.textMuted)),
+                  ],
+                ),
+              ),
+              if (entry.isCurrent)
+                const StatusPill(label: 'Next', tone: PillTone.success)
+              else if (entry.isCompleted)
+                const StatusPill(label: 'Paid Out', tone: PillTone.info)
+              else
+                const StatusPill(label: 'Upcoming', tone: PillTone.neutral),
+            ],
           ),
-          if (entry.isCurrent)
-            const StatusPill(label: 'Next', tone: PillTone.success)
-          else if (entry.isCompleted)
-            const StatusPill(label: 'Paid Out', tone: PillTone.info)
-          else
-            const StatusPill(label: 'Upcoming', tone: PillTone.neutral),
+          if (canAct)
+            Padding(
+              padding: const EdgeInsets.only(left: 42, top: 4),
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: () => _openAction(context, entry, isDelegate: true),
+                    style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    child: Text('Delegate', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.accentGreen)),
+                  ),
+                  const SizedBox(width: 16),
+                  TextButton(
+                    onPressed: () => _openAction(context, entry, isDelegate: false),
+                    style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 4), minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    child: Text('Swap', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.info)),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _openAction(BuildContext context, GroupRotationEntry myEntry, {required bool isDelegate}) async {
+    final otherEntries = rotations.where((r) => r.userId != currentUserId && !r.isCompleted).toList();
+    final sent = await CycleActionSheet.show(
+      context,
+      groupId: groupId,
+      myEntry: myEntry,
+      otherEntries: otherEntries,
+      isDelegate: isDelegate,
+    );
+    if (sent == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isDelegate ? 'Delegation request sent' : 'Swap request sent',
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: AppColors.darkGreen,
+        ),
+      );
+    }
   }
 }
 

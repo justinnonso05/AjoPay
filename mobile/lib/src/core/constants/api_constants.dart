@@ -23,6 +23,11 @@ class ApiConstants {
   static String groupRotations(String groupId) => '$apiPrefix/groups/$groupId/rotations';
   static String autoDebit(String groupId) => '$apiPrefix/groups/$groupId/auto-debit';
 
+  // Cycle management — delegating or swapping a payout turn. Note: unlike
+  // the other group endpoints, these live under /cycles, not /groups.
+  static String delegateCycle(String groupId, int cycleNumber) => '$apiPrefix/cycles/$groupId/cycles/$cycleNumber/delegate';
+  static String swapCycle(String groupId) => '$apiPrefix/cycles/$groupId/swap';
+
   // User endpoints
   static String get me => '$apiPrefix/users/me';
   static String get avatar => '$apiPrefix/users/me/avatar';

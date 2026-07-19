@@ -14,8 +14,9 @@ import { useCurrentUserId } from "@/lib/hooks/use-current-user-id";
 import { useGroup } from "@/lib/hooks/use-group";
 import { useRotations } from "@/lib/hooks/use-rotations";
 import { useWalletTransactions } from "@/lib/hooks/use-wallet-transactions";
-import type { GroupMember } from "@/lib/types";
+import type { GroupMember, GroupRotationEntry } from "@/lib/types";
 import { AutoDebitCard } from "./auto-debit-card";
+import { CycleActionModal } from "./cycle-action-modal";
 import { EditGroupModal } from "./edit-group-modal";
 import { SendInviteModal } from "./send-invite-modal";
 import { StartGroupModal } from "./start-group-modal";
@@ -46,6 +47,7 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
   const [showEdit, setShowEdit] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [showInviteSuccess, setShowInviteSuccess] = useState(false);
+  const [cycleAction, setCycleAction] = useState<{ entry: GroupRotationEntry; isDelegate: boolean } | null>(null);
   const [showStartGroup, setShowStartGroup] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [remindingUserId, setRemindingUserId] = useState<string | null>(null);
@@ -305,26 +307,50 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
               <p className="text-xs text-brand-dark/40">No rotation order yet.</p>
             ) : (
               <div className="divide-y divide-brand-dark/5">
-                {rotations.map((r) => (
-                  <div key={r.cycle_number} className="flex items-center gap-3 py-2.5">
-                    <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-brand-dark ${
-                        r.is_current ? "bg-brand" : r.is_completed ? "bg-brand-pale" : "bg-soft-gray"
-                      }`}
-                    >
-                      {r.cycle_number}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-brand-dark">{`${r.first_name} ${r.last_name}`.trim() || `@${r.username}`}</p>
-                      {r.payout_date && (
-                        <p className="flex items-center gap-1 text-[11px] text-brand-dark/40">
-                          <Calendar size={10} /> {formatShortDate(r.payout_date)}
-                        </p>
+                {rotations.map((r) => {
+                  const isMine = r.user_id === currentUserId;
+                  const canAct = isMine && !r.is_completed;
+                  return (
+                    <div key={r.cycle_number} className="py-2.5">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-brand-dark ${
+                            r.is_current ? "bg-brand" : r.is_completed ? "bg-brand-pale" : "bg-soft-gray"
+                          }`}
+                        >
+                          {r.cycle_number}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-brand-dark">{`${r.first_name} ${r.last_name}`.trim() || `@${r.username}`}</p>
+                          {r.payout_date && (
+                            <p className="flex items-center gap-1 text-[11px] text-brand-dark/40">
+                              <Calendar size={10} /> {formatShortDate(r.payout_date)}
+                            </p>
+                          )}
+                        </div>
+                        <StatusPill label={r.is_current ? "Next" : r.is_completed ? "Paid Out" : "Upcoming"} tone={r.is_current ? "success" : r.is_completed ? "info" : "neutral"} />
+                      </div>
+                      {canAct && (
+                        <div className="mt-1.5 flex gap-4 pl-10">
+                          <button
+                            type="button"
+                            onClick={() => setCycleAction({ entry: r, isDelegate: true })}
+                            className="text-xs font-bold text-brand-accent"
+                          >
+                            Delegate
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCycleAction({ entry: r, isDelegate: false })}
+                            className="text-xs font-bold text-blue-500"
+                          >
+                            Swap
+                          </button>
+                        </div>
                       )}
                     </div>
-                    <StatusPill label={r.is_current ? "Next" : r.is_completed ? "Paid Out" : "Upcoming"} tone={r.is_current ? "success" : r.is_completed ? "info" : "neutral"} />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -434,6 +460,20 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
       )}
 
       {showStartGroup && <StartGroupModal members={members} onClose={() => setShowStartGroup(false)} onStart={handleStartGroup} />}
+
+      {cycleAction && (
+        <CycleActionModal
+          groupId={groupId}
+          myEntry={cycleAction.entry}
+          otherEntries={rotations.filter((r) => r.user_id !== currentUserId && !r.is_completed)}
+          isDelegate={cycleAction.isDelegate}
+          onClose={() => setCycleAction(null)}
+          onSent={() => {
+            setCycleAction(null);
+            showToast(cycleAction.isDelegate ? "Delegation request sent" : "Swap request sent");
+          }}
+        />
+      )}
     </div>
   );
 }
