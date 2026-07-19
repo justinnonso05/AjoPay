@@ -229,6 +229,7 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
         <Row label="Members" value={`${members.length}${group.member_cap ? ` / ${group.member_cap}` : ""}`} />
         <Row label="Current Round" value={`${group.current_cycle_number}`} />
         <Row label="Pool Balance (this round)" value={`₦${formatAmount(group.pool_balance)}`} />
+        <Row label="Next Payout" value={group.next_payout_date ? formatShortDate(group.next_payout_date) : "TBD"} />
         <Row label="Admin" value={admin ? `${admin.first_name} ${admin.last_name}`.trim() : "—"} />
       </div>
 

@@ -386,6 +386,8 @@ class _GroupDetailsScreenState extends ConsumerState<GroupDetailsScreen> {
               _divider(),
               _row('Pool Balance (this round)', '₦${formatAmount(group.poolBalance)}'),
               _divider(),
+              _row('Next Payout', group.nextPayoutDate != null ? formatShortDate(group.nextPayoutDate!) : 'TBD'),
+              _divider(),
               _row('Admin', admin.isNotEmpty ? admin.first.fullName : '—'),
             ],
           ),
