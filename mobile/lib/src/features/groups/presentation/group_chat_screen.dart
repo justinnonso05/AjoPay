@@ -164,6 +164,10 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
       setState(() => _editingMessageId = null);
     } else {
       _channel!.sink.add(jsonEncode({'action': 'send', 'message': text}));
+      // Jump down right away rather than waiting for the broadcast echo —
+      // sending should always feel like it lands at the bottom instantly,
+      // even if the user was scrolled up reading older messages.
+      _scrollToBottom();
     }
     _controller.clear();
   }
