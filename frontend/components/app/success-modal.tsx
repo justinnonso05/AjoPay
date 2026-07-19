@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { AnimatedCheckmark } from "@/components/app/animated-checkmark";
 
 /** Shared "action succeeded" confirmation — mirrors the mobile app's SuccessBottomSheet
  * (animated checkmark + title + subtitle + primary action) so every money-moving
@@ -19,9 +19,9 @@ export function SuccessModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand-dark/40 px-4 backdrop-blur-sm">
       <div className="w-full max-w-sm rounded-card bg-white p-8 text-center shadow-2xl">
-        <span className="mx-auto flex h-16 w-16 animate-[scale-in_0.35s_ease-out] items-center justify-center rounded-full bg-brand-pale">
-          <CheckCircle2 size={32} className="text-brand-accent" />
-        </span>
+        <div className="mx-auto flex justify-center">
+          <AnimatedCheckmark size={64} />
+        </div>
         <h3 className="mt-5 font-display text-lg font-bold text-brand-dark">{title}</h3>
         <p className="mt-2 text-sm leading-relaxed text-brand-dark/55">{subtitle}</p>
         <button
