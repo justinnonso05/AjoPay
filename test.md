@@ -3,6 +3,11 @@ Here's everything, all still live on the backend:
 Test accounts (all password: Password123)
 Email	Username	KYC done?	PIN set?	Notes
 smoketest_ajopay_qa@example.com	smoketestqa123	❌	❌	plain signup, no phone
+
+
+
+
+
 smoketest_ajopay_qa2@example.com	smoketestqa456	❌	❌	signup with phone
 smoketest_ajopay_qa3@example.com	smoketestqa789	✅	❌	good for testing "logged in, needs PIN" flow
 smoketest_ajopay_qa4@example.com	smoketestqa999	❌	❌	admin of "QA Test Group" below
