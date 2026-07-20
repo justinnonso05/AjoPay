@@ -140,11 +140,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                 );
               },
               child: CustomPaint(
-                size: const Size(56, 56),
+                size: const Size(64, 64),
                 painter: LogoMarkPainter(),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             // Animated Word / Text
             AnimatedBuilder(
               animation: _controller,
@@ -159,9 +159,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
               },
               child: Text(
                 'AjoPay',
-                style: TextStyle(fontFamily: 'SpaceGrotesk', 
-                  fontSize: 38,
-                  fontWeight: FontWeight.bold,
+                style: TextStyle(
+                  fontFamily: 'SpaceGrotesk',
+                  fontSize: 44,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -1.0,
                   color: const Color(0xFF1D3108),
                 ),
               ),

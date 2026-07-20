@@ -13,9 +13,9 @@ export function Footer() {
     <footer className="border-t border-brand-dark/5 bg-soft-gray px-6 py-14">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-8 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col items-center gap-3 sm:items-start">
-          <div className="flex items-center gap-2">
-            <Image src="/images/logo.png" alt="AjoPay" width={32} height={32} className="h-8 w-8 rounded-full object-cover" />
-            <span className="font-display text-lg font-bold text-brand-dark">AjoPay</span>
+          <div className="flex items-center gap-1.5">
+            <Image src="/images/logo.png" alt="AjoPay" width={44} height={44} className="h-10 w-10 rounded-full object-cover sm:h-11 sm:w-11" />
+            <span className="font-display text-xl font-extrabold tracking-tight text-brand-dark sm:text-2xl">AjoPay</span>
           </div>
           <p className="max-w-xs text-center text-sm text-brand-dark/50 sm:text-left">
             The modern way to run your Ajo or Esusu savings group.

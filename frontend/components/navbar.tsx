@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Download, Menu, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -33,9 +33,9 @@ export function Navbar() {
             : "border border-transparent bg-transparent"
         }`}
       >
-        <Link href="#" className="flex items-center gap-2">
-          <Image src="/images/logo.png" alt="AjoPay" width={32} height={32} className="h-8 w-8 rounded-full object-cover" priority />
-          <span className="font-display text-lg font-bold text-brand-dark">AjoPay</span>
+        <Link href="#" className="flex items-center gap-1.5">
+          <Image src="/images/logo.png" alt="AjoPay" width={44} height={44} className="h-10 w-10 rounded-full object-cover sm:h-11 sm:w-11" priority />
+          <span className="font-display text-xl font-extrabold tracking-tight text-brand-dark sm:text-2xl">AjoPay</span>
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
@@ -50,16 +50,17 @@ export function Navbar() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-4 md:flex">
           <Link href="/login" className="text-sm font-semibold text-brand-dark/70 transition-colors hover:text-brand-dark">
             Sign In
           </Link>
-          <Link
-            href="/signup"
-            className="rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-brand-dark transition-transform hover:scale-105 active:scale-95"
+          <a
+            href="#final-cta"
+            className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-brand-dark shadow-[0_4px_16px_rgba(172,236,135,0.35)] transition-transform hover:scale-105 active:scale-95"
           >
-            Get Started
-          </Link>
+            <Download size={16} />
+            <span>Download App</span>
+          </a>
         </div>
 
         <button
@@ -92,17 +93,18 @@ export function Navbar() {
                   {link.label}
                 </a>
               ))}
-              <div className="mt-2 flex flex-col gap-2 border-t border-black/5 pt-4">
-                <Link href="/login" onClick={() => setMenuOpen(false)} className="text-sm font-semibold text-brand-dark/70">
+              <div className="mt-2 flex flex-col gap-2.5 border-t border-black/5 pt-4">
+                <Link href="/login" onClick={() => setMenuOpen(false)} className="py-1 text-center text-sm font-semibold text-brand-dark/70">
                   Sign In
                 </Link>
-                <Link
-                  href="/signup"
+                <a
+                  href="#final-cta"
                   onClick={() => setMenuOpen(false)}
-                  className="rounded-full bg-brand px-5 py-2.5 text-center text-sm font-bold text-brand-dark"
+                  className="flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2.5 text-center text-sm font-bold text-brand-dark"
                 >
-                  Get Started
-                </Link>
+                  <Download size={16} />
+                  <span>Download App</span>
+                </a>
               </div>
             </div>
           </motion.div>
