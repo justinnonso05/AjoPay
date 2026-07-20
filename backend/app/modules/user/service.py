@@ -171,9 +171,20 @@ async def withdraw_from_wallet(user: User, amount: float, pin: str, db: AsyncSes
         raise HTTPException(status_code=400, detail=f"Invalid Transaction PIN. {rem} attempt(s) remaining.")
     record_pin_success(user.id)
         
+    # Calculate withdrawal fee based on Monnify pricing
+    from app.core.config import settings
+    if amount < 10000:
+        fee = settings.MONNIFY_PAYOUT_FEE_TIER_1
+    elif amount < 50000:
+        fee = settings.MONNIFY_PAYOUT_FEE_TIER_2
+    else:
+        fee = settings.MONNIFY_PAYOUT_FEE_TIER_3
+        
+    total_deduction = amount + fee
+
     # 2. Check balance
-    if float(user.wallet_balance) < amount:
-        raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+    if float(user.wallet_balance) < total_deduction:
+        raise HTTPException(status_code=400, detail=f"Insufficient wallet balance. You need ₦{total_deduction:,.2f} to cover the withdrawal amount and ₦{fee:,.2f} transfer fee.")
         
     # 3. Check payout bank exists
     if not user.payout_bank_account_number or not user.payout_bank_code:
@@ -205,8 +216,17 @@ async def withdraw_from_wallet(user: User, amount: float, pin: str, db: AsyncSes
     )
     db.add(entry)
     
+    fee_entry = WalletLedgerEntry(
+        user_id=user.id,
+        type=WalletLedgerEntryType.PLATFORM_FEE,
+        amount=-fee,
+        monnify_transaction_reference=f"fee-{monnify_response.get('reference')}",
+        narration="Withdrawal Transfer Fee"
+    )
+    db.add(fee_entry)
+    
     # 6. Update user balance
-    user.wallet_balance = float(user.wallet_balance) - amount
+    user.wallet_balance = float(user.wallet_balance) - total_deduction
     db.add(user)
     
     await db.commit()

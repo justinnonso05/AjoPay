@@ -50,6 +50,7 @@ class WalletLedgerEntryType(str, Enum):
     WALLET_TRANSFER_SENT = "wallet_transfer_sent"
     WALLET_TRANSFER_RECEIVED = "wallet_transfer_received"
     CORRECTION = "correction"
+    PLATFORM_FEE = "platform_fee"
 
 class GroupLedgerEntryType(str, Enum):
     CONTRIBUTION_WALLET = "contribution_wallet"

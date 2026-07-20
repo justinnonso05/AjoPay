@@ -45,6 +45,16 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 
+    # Fee Configuration
+    MONNIFY_COLLECTION_FEE_PERCENT: float = 1.5 # 1.5%
+    MONNIFY_COLLECTION_FEE_CAP: float = 2000.0
+    
+    MONNIFY_PAYOUT_FEE_TIER_1: float = 10.0 # < 10,000
+    MONNIFY_PAYOUT_FEE_TIER_2: float = 20.0 # >= 10,000
+    MONNIFY_PAYOUT_FEE_TIER_3: float = 40.0 # >= 50,000
+    
+    AJOPAY_PLATFORM_FEE_PERCENT: float = 1.0 # 1%
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
     @model_validator(mode='after')

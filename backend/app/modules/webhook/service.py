@@ -128,7 +128,7 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
             user_res = await db.execute(select(User).where(User.personal_reserved_account_number == dest_account_number))
             user = user_res.scalar_one_or_none()
             if user:
-                # Credit wallet
+                # Credit wallet full amount
                 entry = WalletLedgerEntry(
                     user_id=user.id,
                     type=WalletLedgerEntryType.TOPUP,
@@ -139,8 +139,24 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
                 )
                 db.add(entry)
                 
-                # Update user wallet balance
-                user.wallet_balance = float(user.wallet_balance) + amount
+                # Calculate Fees (divide by 100 since configs are in percentages e.g. 1.5, 1)
+                monnify_fee = min(amount * (settings.MONNIFY_COLLECTION_FEE_PERCENT / 100), settings.MONNIFY_COLLECTION_FEE_CAP)
+                platform_fee = amount * (settings.AJOPAY_PLATFORM_FEE_PERCENT / 100)
+                total_fees = monnify_fee + platform_fee
+                net_amount = amount - total_fees
+                
+                # Deduct fees
+                fee_entry = WalletLedgerEntry(
+                    user_id=user.id,
+                    type=WalletLedgerEntryType.PLATFORM_FEE,
+                    amount=-total_fees,
+                    monnify_transaction_reference=f"fee-{monnify_reference}",
+                    narration="Processing and Platform Fees"
+                )
+                db.add(fee_entry)
+                
+                # Update user wallet balance with net amount
+                user.wallet_balance = float(user.wallet_balance) + net_amount
                 db.add(user)
                 
                 # Notifications
@@ -151,12 +167,12 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
                 notif = Notification(
                     user_id=user.id,
                     title="Wallet Funded",
-                    message=f"Your wallet was topped up with ₦{amount:,.2f}.",
+                    message=f"Your wallet was topped up with ₦{net_amount:,.2f} (after ₦{total_fees:,.2f} fees).",
                     type="wallet_topup"
                 )
                 db.add(notif)
                 
-                asyncio.create_task(send_wallet_funded_email(user.email, user.first_name, amount))
+                asyncio.create_task(send_wallet_funded_email(user.email, user.first_name, net_amount))
         else:
             logger.warning(f"Wallet Top-Up destination account number missing in webhook payload: {payload}")
                 
