@@ -13,7 +13,8 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   // Icon Animations (markIn: 16% to 39%)
@@ -63,7 +64,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         if (mounted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _resolveDestination());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _resolveDestination(),
+          );
         }
       }
     });
@@ -76,7 +79,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   /// so this checks for a stored session and validates it against the
   /// backend before deciding where to land.
   Future<void> _resolveDestination() async {
-    final token = await ref.read(secureStorageServiceProvider).readAccessToken();
+    final token = await ref
+        .read(secureStorageServiceProvider)
+        .readAccessToken();
     if (token == null || token.isEmpty) {
       if (mounted) context.goNamed(AppRoute.onboarding.name);
       return;
@@ -121,7 +126,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFACEC87), // light green brand color matching screenshot
+      backgroundColor: const Color(
+        0xFFACEC87,
+      ), // light green brand color matching screenshot
       body: Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -133,10 +140,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
               builder: (context, child) {
                 return Opacity(
                   opacity: _iconOpacity.value,
-                  child: Transform.scale(
-                    scale: _iconScale.value,
-                    child: child,
-                  ),
+                  child: Transform.scale(scale: _iconScale.value, child: child),
                 );
               },
               child: CustomPaint(

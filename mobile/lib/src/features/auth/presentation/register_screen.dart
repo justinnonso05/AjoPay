@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -39,20 +38,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  // DEBUG ONLY: fills the form with dummy data for faster manual testing.
-  // Safe to delete this method (and its call site) once backend auth is wired up.
-  void _fillDummyData() {
-    setState(() {
-      _firstNameController.text = 'Johan';
-      _lastNameController.text = 'Mandela';
-      _usernameController.text = 'johanmandela';
-      _emailController.text = 'testuser@payajo.com';
-      _phoneController.text = '+2348012345678';
-      _passwordController.text = 'Password123';
-      _agreeToTerms = true;
-    });
   }
 
   String? _validateRequired(String? value, String label) {
@@ -174,25 +159,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         const SizedBox(height: 16),
 
                         // Title & Subtitle
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Join PayAjo',
-                              style: TextStyle(fontFamily: 'SpaceGrotesk', 
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1D3108),
-                              ),
-                            ),
-                            // DEBUG ONLY: quick-fill button for manual testing, hidden in release builds.
-                            if (kDebugMode)
-                              IconButton(
-                                onPressed: _fillDummyData,
-                                tooltip: 'Fill test data (debug only)',
-                                icon: const Icon(Icons.bolt_rounded, color: Color(0xFF5BA72D)),
-                              ),
-                          ],
+                        Text(
+                          'Join PayAjo',
+                          style: TextStyle(fontFamily: 'SpaceGrotesk',
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: const Color(0xFF1D3108),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(

@@ -33,7 +33,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"amount\": 10000.00,\r\n  \"customerName\": \"Chidi Okafor\",\r\n  \"customerEmail\": \"chidi@example.com\",\r\n  \"paymentReference\": \"ajopay-direct-group042-cycle3-user017-{{$timestamp}}\",\r\n  \"paymentDescription\": \"AjoPay contribution — Group 042 cycle 3\",\r\n  \"currencyCode\": \"NGN\",\r\n  \"contractCode\": \"{{contract_code}}\",\r\n  \"redirectUrl\": \"https://ajopay.app/contribute/confirm\",\r\n  \"paymentMethods\": [\"ACCOUNT_TRANSFER\"]\r\n}",
+              "raw": "{\r\n  \"amount\": 10000.00,\r\n  \"customerName\": \"Chidi Okafor\",\r\n  \"customerEmail\": \"chidi@example.com\",\r\n  \"paymentReference\": \"payajo-direct-group042-cycle3-user017-{{$timestamp}}\",\r\n  \"paymentDescription\": \"PayAjo contribution — Group 042 cycle 3\",\r\n  \"currencyCode\": \"NGN\",\r\n  \"contractCode\": \"{{contract_code}}\",\r\n  \"redirectUrl\": \"https://payajo.app/contribute/confirm\",\r\n  \"paymentMethods\": [\"ACCOUNT_TRANSFER\"]\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -72,7 +72,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"amount\": 10000.00,\r\n  \"customerName\": \"Chidi Okafor\",\r\n  \"customerEmail\": \"chidi@example.com\",\r\n  \"paymentReference\": \"ajopay-direct-group042-cycle3-user017-{{$timestamp}}\",\r\n  \"paymentDescription\": \"AjoPay contribution — Group 042 cycle 3\",\r\n  \"currencyCode\": \"NGN\",\r\n  \"contractCode\": \"{{contract_code}}\",\r\n  \"redirectUrl\": \"https://ajopay.app/contribute/confirm\",\r\n  \"paymentMethods\": [\"ACCOUNT_TRANSFER\"]\r\n}",
+                  "raw": "{\r\n  \"amount\": 10000.00,\r\n  \"customerName\": \"Chidi Okafor\",\r\n  \"customerEmail\": \"chidi@example.com\",\r\n  \"paymentReference\": \"payajo-direct-group042-cycle3-user017-{{$timestamp}}\",\r\n  \"paymentDescription\": \"PayAjo contribution — Group 042 cycle 3\",\r\n  \"currencyCode\": \"NGN\",\r\n  \"contractCode\": \"{{contract_code}}\",\r\n  \"redirectUrl\": \"https://payajo.app/contribute/confirm\",\r\n  \"paymentMethods\": [\"ACCOUNT_TRANSFER\"]\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -162,7 +162,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"transactionReference\": \"MNFY|04|20260716105631|000071\",\n        \"paymentReference\": \"ajopay-direct-group042-cycle3-user017-1784195790\",\n        \"merchantName\": \"DuesPay\",\n        \"apiKey\": \"MK_TEST_RZUBQYC54Q\",\n        \"redirectUrl\": \"https://ajopay.app/contribute/confirm\",\n        \"enabledPaymentMethod\": [\n            \"ACCOUNT_TRANSFER\"\n        ],\n        \"checkoutUrl\": \"https://sandbox.sdk.monnify.com/checkout/MNFY|04|20260716105631|000071\"\n    }\n}"
+              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"transactionReference\": \"MNFY|04|20260716105631|000071\",\n        \"paymentReference\": \"payajo-direct-group042-cycle3-user017-1784195790\",\n        \"merchantName\": \"DuesPay\",\n        \"apiKey\": \"MK_TEST_RZUBQYC54Q\",\n        \"redirectUrl\": \"https://payajo.app/contribute/confirm\",\n        \"enabledPaymentMethod\": [\n            \"ACCOUNT_TRANSFER\"\n        ],\n        \"checkoutUrl\": \"https://sandbox.sdk.monnify.com/checkout/MNFY|04|20260716105631|000071\"\n    }\n}"
             }
           ]
         },
@@ -313,7 +313,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"accountNumber\": \"1000214820\",\n        \"accountName\": \"DuesPay-Ajo\",\n        \"bankName\": \"Wema bank\",\n        \"bankCode\": \"035\",\n        \"accountDurationSeconds\": 2345,\n        \"ussdPayment\": null,\n        \"requestTime\": \"2026-07-16T10:57:30\",\n        \"expiresOn\": \"2026-07-16T11:37:29\",\n        \"transactionReference\": \"MNFY|04|20260716105631|000071\",\n        \"paymentReference\": \"ajopay-direct-group042-cycle3-user017-1784195790\",\n        \"amount\": 10000,\n        \"fee\": 0,\n        \"totalPayable\": 10000,\n        \"collectionChannel\": \"WEB_SDK\",\n        \"productInformation\": null\n    }\n}"
+              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"accountNumber\": \"1000214820\",\n        \"accountName\": \"DuesPay-Ajo\",\n        \"bankName\": \"Wema bank\",\n        \"bankCode\": \"035\",\n        \"accountDurationSeconds\": 2345,\n        \"ussdPayment\": null,\n        \"requestTime\": \"2026-07-16T10:57:30\",\n        \"expiresOn\": \"2026-07-16T11:37:29\",\n        \"transactionReference\": \"MNFY|04|20260716105631|000071\",\n        \"paymentReference\": \"payajo-direct-group042-cycle3-user017-1784195790\",\n        \"amount\": 10000,\n        \"fee\": 0,\n        \"totalPayable\": 10000,\n        \"collectionChannel\": \"WEB_SDK\",\n        \"productInformation\": null\n    }\n}"
             }
           ]
         },
@@ -604,7 +604,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"accountReference\": \"ajopay-member-002\",\r\n  \"accountName\": \"AjoPay - Chinonso\",\r\n  \"currencyCode\": \"NGN\",\r\n  \"contractCode\": \"{{contract_code}}\",\r\n  \"customerEmail\": \"chinonsoali2005@gmail.com\",\r\n  \"customerName\": \"Chinonso Ali\",\r\n  \"getAllAvailableBanks\": false,\r\n  \"preferredBanks\": [\"50515\"],\r\n  \"bvn\": \"22631975148\"\r\n}",
+              "raw": "{\r\n  \"accountReference\": \"payajo-member-002\",\r\n  \"accountName\": \"PayAjo - Chinonso\",\r\n  \"currencyCode\": \"NGN\",\r\n  \"contractCode\": \"{{contract_code}}\",\r\n  \"customerEmail\": \"chinonsoali2005@gmail.com\",\r\n  \"customerName\": \"Chinonso Ali\",\r\n  \"getAllAvailableBanks\": false,\r\n  \"preferredBanks\": [\"50515\"],\r\n  \"bvn\": \"22631975148\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -632,7 +632,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"accountReference\": \"ajopay-member-001\",\r\n  \"accountName\": \"AjoPay - Chinonso Justin Ali\",\r\n  \"currencyCode\": \"NGN\",\r\n  \"contractCode\": \"{{contract_code}}\",\r\n  \"customerEmail\": \"chinonsoali2005@gmail.com\",\r\n  \"customerName\": \"Chinonso Ali\",\r\n  \"getAllAvailableBanks\": false,\r\n  \"preferredBanks\": [\"232\"],\r\n  \"bvn\": \"22631975148\"\r\n}",
+                  "raw": "{\r\n  \"accountReference\": \"payajo-member-001\",\r\n  \"accountName\": \"PayAjo - Chinonso Justin Ali\",\r\n  \"currencyCode\": \"NGN\",\r\n  \"contractCode\": \"{{contract_code}}\",\r\n  \"customerEmail\": \"chinonsoali2005@gmail.com\",\r\n  \"customerName\": \"Chinonso Ali\",\r\n  \"getAllAvailableBanks\": false,\r\n  \"preferredBanks\": [\"232\"],\r\n  \"bvn\": \"22631975148\"\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -718,7 +718,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"contractCode\": \"8589555909\",\n        \"accountReference\": \"ajopay-member-001\",\n        \"accountName\": \"Ajo\",\n        \"currencyCode\": \"NGN\",\n        \"customerEmail\": \"chinonsoali2005@gmail.com\",\n        \"customerName\": \"Chinonso Ali\",\n        \"accounts\": [\n            {\n                \"bankCode\": \"232\",\n                \"bankName\": \"Sterling bank\",\n                \"accountNumber\": \"2247558127\",\n                \"accountName\": \"Ajo\"\n            }\n        ],\n        \"collectionChannel\": \"RESERVED_ACCOUNT\",\n        \"reservationReference\": \"811EQEYMREFT02G00010\",\n        \"reservedAccountType\": \"GENERAL\",\n        \"status\": \"ACTIVE\",\n        \"createdOn\": \"2026-07-16 08:31:23.612335193\",\n        \"incomeSplitConfig\": [],\n        \"bvn\": \"22631975148\",\n        \"restrictPaymentSource\": false,\n        \"metaData\": {}\n    }\n}"
+              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"contractCode\": \"8589555909\",\n        \"accountReference\": \"payajo-member-001\",\n        \"accountName\": \"Ajo\",\n        \"currencyCode\": \"NGN\",\n        \"customerEmail\": \"chinonsoali2005@gmail.com\",\n        \"customerName\": \"Chinonso Ali\",\n        \"accounts\": [\n            {\n                \"bankCode\": \"232\",\n                \"bankName\": \"Sterling bank\",\n                \"accountNumber\": \"2247558127\",\n                \"accountName\": \"Ajo\"\n            }\n        ],\n        \"collectionChannel\": \"RESERVED_ACCOUNT\",\n        \"reservationReference\": \"811EQEYMREFT02G00010\",\n        \"reservedAccountType\": \"GENERAL\",\n        \"status\": \"ACTIVE\",\n        \"createdOn\": \"2026-07-16 08:31:23.612335193\",\n        \"incomeSplitConfig\": [],\n        \"bvn\": \"22631975148\",\n        \"restrictPaymentSource\": false,\n        \"metaData\": {}\n    }\n}"
             }
           ]
         },
@@ -845,7 +845,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"contractCode\": \"8589555909\",\n        \"accountReference\": \"ajopay-member-001\",\n        \"accountName\": \"DuesPay-Ajo\",\n        \"currencyCode\": \"NGN\",\n        \"customerEmail\": \"chinonsoali2005@gmail.com\",\n        \"customerName\": \"Chinonso Ali\",\n        \"accounts\": [\n            {\n                \"bankCode\": \"232\",\n                \"bankName\": \"Sterling bank\",\n                \"accountNumber\": \"2247558127\",\n                \"accountName\": \"Ajo\"\n            }\n        ],\n        \"collectionChannel\": \"RESERVED_ACCOUNT\",\n        \"reservationReference\": \"811EQEYMREFT02G00010\",\n        \"reservedAccountType\": \"GENERAL\",\n        \"status\": \"ACTIVE\",\n        \"createdOn\": \"2026-07-16 08:31:24.0\",\n        \"contract\": {\n            \"name\": \"Default Contract\",\n            \"code\": \"8589555909\",\n            \"description\": null\n        },\n        \"transactionCount\": 0,\n        \"bvn\": \"22631975148\",\n        \"restrictPaymentSource\": false,\n        \"metaData\": {}\n    }\n}"
+              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"contractCode\": \"8589555909\",\n        \"accountReference\": \"payajo-member-001\",\n        \"accountName\": \"DuesPay-Ajo\",\n        \"currencyCode\": \"NGN\",\n        \"customerEmail\": \"chinonsoali2005@gmail.com\",\n        \"customerName\": \"Chinonso Ali\",\n        \"accounts\": [\n            {\n                \"bankCode\": \"232\",\n                \"bankName\": \"Sterling bank\",\n                \"accountNumber\": \"2247558127\",\n                \"accountName\": \"Ajo\"\n            }\n        ],\n        \"collectionChannel\": \"RESERVED_ACCOUNT\",\n        \"reservationReference\": \"811EQEYMREFT02G00010\",\n        \"reservedAccountType\": \"GENERAL\",\n        \"status\": \"ACTIVE\",\n        \"createdOn\": \"2026-07-16 08:31:24.0\",\n        \"contract\": {\n            \"name\": \"Default Contract\",\n            \"code\": \"8589555909\",\n            \"description\": null\n        },\n        \"transactionCount\": 0,\n        \"bvn\": \"22631975148\",\n        \"restrictPaymentSource\": false,\n        \"metaData\": {}\n    }\n}"
             }
           ]
         },
@@ -903,7 +903,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\r\n  \"amount\": 500.00,\r\n  \"reference\": \"ajopay-payout-cycle1-{{$timestamp}}\",\r\n  \"narration\": \"AjoPay payout — Test Group — cycle 1\",\r\n  \"destinationBankCode\": \"305\",\r\n  \"destinationAccountNumber\": \"9046665617\",\r\n  \"destinationAccountName\": \"CHINONSO JUSTIN ALI\",\r\n  \"currency\": \"NGN\",\r\n  \"sourceAccountNumber\": \"6975655381\"\r\n}",
+              "raw": "{\r\n  \"amount\": 500.00,\r\n  \"reference\": \"payajo-payout-cycle1-{{$timestamp}}\",\r\n  \"narration\": \"PayAjo payout — Test Group — cycle 1\",\r\n  \"destinationBankCode\": \"305\",\r\n  \"destinationAccountNumber\": \"9046665617\",\r\n  \"destinationAccountName\": \"CHINONSO JUSTIN ALI\",\r\n  \"currency\": \"NGN\",\r\n  \"sourceAccountNumber\": \"6975655381\"\r\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -931,7 +931,7 @@
                 "header": [],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\r\n  \"amount\": 500.00,\r\n  \"reference\": \"ajopay-payout-cycle1-{{$timestamp}}\",\r\n  \"narration\": \"AjoPay payout — Test Group — cycle 1\",\r\n  \"destinationBankCode\": \"305\",\r\n  \"destinationAccountNumber\": \"9046665617\",\r\n  \"destinationAccountName\": \"CHINONSO JUSTIN ALI\",\r\n  \"currency\": \"NGN\",\r\n  \"sourceAccountNumber\": \"6975655381\"\r\n}",
+                  "raw": "{\r\n  \"amount\": 500.00,\r\n  \"reference\": \"payajo-payout-cycle1-{{$timestamp}}\",\r\n  \"narration\": \"PayAjo payout — Test Group — cycle 1\",\r\n  \"destinationBankCode\": \"305\",\r\n  \"destinationAccountNumber\": \"9046665617\",\r\n  \"destinationAccountName\": \"CHINONSO JUSTIN ALI\",\r\n  \"currency\": \"NGN\",\r\n  \"sourceAccountNumber\": \"6975655381\"\r\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1021,7 +1021,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"amount\": 500,\n        \"reference\": \"ajopay-payout-cycle1-1784194442\",\n        \"status\": \"SUCCESS\",\n        \"dateCreated\": \"2026-07-16T09:34:03.117+00:00\",\n        \"totalFee\": 35,\n        \"destinationAccountName\": \"CHINONSO JUSTIN ALI\",\n        \"destinationBankName\": \"OPAY 2\",\n        \"destinationAccountNumber\": \"9046665617\",\n        \"destinationBankCode\": \"305\",\n        \"comment\": \"Transaction successful\"\n    }\n}"
+              "body": "{\n    \"requestSuccessful\": true,\n    \"responseMessage\": \"success\",\n    \"responseCode\": \"0\",\n    \"responseBody\": {\n        \"amount\": 500,\n        \"reference\": \"payajo-payout-cycle1-1784194442\",\n        \"status\": \"SUCCESS\",\n        \"dateCreated\": \"2026-07-16T09:34:03.117+00:00\",\n        \"totalFee\": 35,\n        \"destinationAccountName\": \"CHINONSO JUSTIN ALI\",\n        \"destinationBankName\": \"OPAY 2\",\n        \"destinationAccountNumber\": \"9046665617\",\n        \"destinationBankCode\": \"305\",\n        \"comment\": \"Transaction successful\"\n    }\n}"
             }
           ]
         },
@@ -1148,7 +1148,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n    \"responseMessage\": \"Transaction successful\",\n    \"responseCode\": \"00\",\n    \"responseBody\": {\n        \"amount\": 500,\n        \"reference\": \"ajopay-payout-cycle1-1784194442\",\n        \"narration\": \"AjoPay payout — Test Group — cycle 1\",\n        \"currency\": \"NGN\",\n        \"fee\": 35,\n        \"twoFaEnabled\": false,\n        \"transactionDescription\": \"Transaction successful\",\n        \"transactionReference\": \"MFDS79320260716103403000301AG5HCU\",\n        \"createdOn\": \"2026-07-16T09:34:03.000+00:00\",\n        \"sourceAccountNumber\": \"6975655381\",\n        \"destinationAccountNumber\": \"9046665617\",\n        \"destinationAccountName\": \"CHINONSO JUSTIN ALI\",\n        \"destinationBankCode\": \"305\",\n        \"destinationBankName\": \"OPAY 2\",\n        \"transactionStatus\": \"SUCCESS\"\n    }\n}"
+              "body": "{\n    \"responseMessage\": \"Transaction successful\",\n    \"responseCode\": \"00\",\n    \"responseBody\": {\n        \"amount\": 500,\n        \"reference\": \"payajo-payout-cycle1-1784194442\",\n        \"narration\": \"PayAjo payout — Test Group — cycle 1\",\n        \"currency\": \"NGN\",\n        \"fee\": 35,\n        \"twoFaEnabled\": false,\n        \"transactionDescription\": \"Transaction successful\",\n        \"transactionReference\": \"MFDS79320260716103403000301AG5HCU\",\n        \"createdOn\": \"2026-07-16T09:34:03.000+00:00\",\n        \"sourceAccountNumber\": \"6975655381\",\n        \"destinationAccountNumber\": \"9046665617\",\n        \"destinationAccountName\": \"CHINONSO JUSTIN ALI\",\n        \"destinationBankCode\": \"305\",\n        \"destinationBankName\": \"OPAY 2\",\n        \"transactionStatus\": \"SUCCESS\"\n    }\n}"
             }
           ]
         },

@@ -1,5 +1,5 @@
 now base don what we havenow can w ehave a  simple landingpage for hisourpridcut : Prompt for Claude Code
-We need to completely redesign the AjoPay marketing website.
+We need to completely redesign the PayAjo marketing website.
 Our mobile app is already being built, and now the website should match the same premium fintech aesthetic.
 Think:
 
@@ -40,7 +40,7 @@ Premium typography.
 Smooth animations.
 Navbar
 Left
-AjoPay Logo
+PayAjo Logo
 Middle
 Features
 How it Works
@@ -90,7 +90,7 @@ No transparency
 Each card should animate.
 Solution Section
 Headline
-Meet AjoPay
+Meet PayAjo
 Illustration beside text.
 Features
 Automatic contribution tracking
@@ -185,7 +185,7 @@ Small businesses.
 FAQ
 Accordion.
 Questions
-How does AjoPay work?
+How does PayAjo work?
 Is my money safe?
 What is a Reserved Account?
 Can I withdraw anytime?
@@ -239,4 +239,4 @@ Prioritize:
 * Excellent mobile responsiveness
 
 Avoid generic templates.
-The goal is to make visitors immediately trust AjoPay as the modern way to manage Ajo/Esusu savings groups, while giving judges and potential users confidence in the product.
+The goal is to make visitors immediately trust PayAjo as the modern way to manage Ajo/Esusu savings groups, while giving judges and potential users confidence in the product.

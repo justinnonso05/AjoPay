@@ -1,6 +1,6 @@
 # Testing Monnify Endpoints in Postman — Pre-Implementation Guide
 
-Goal: exercise every Monnify endpoint AjoPay depends on, by hand, in Postman —
+Goal: exercise every Monnify endpoint PayAjo depends on, by hand, in Postman —
 before any of it is wired into FastAPI. If it doesn't work cleanly here, it
 won't work cleanly in code either.
 
@@ -36,10 +36,10 @@ Create a Postman **Environment** called `Monnify Sandbox` with these variables (
 | `transfer_reference` | *(auto-filled — see §7)* | |
 | `webhook_url` | *(your webhook.site URL)* | Paste into your Monnify dashboard webhook settings |
 
-Create a **Collection** called `AjoPay — Monnify Sandbox`, with folders:
+Create a **Collection** called `PayAjo — Monnify Sandbox`, with folders:
 
 ```
-AjoPay — Monnify Sandbox/
+PayAjo — Monnify Sandbox/
 ├── 0. Auth
 ├── 1. Supporting Data (Banks, Name Enquiry)
 ├── 2. Reserved Accounts (Collections)
@@ -90,7 +90,7 @@ Authorization: Bearer {{access_token}}
 
 > Token expires after 1 hour (3600s). If later calls start failing with a 401, re-run this request first — it's almost always an expired token, not a broken integration.
 
-**✅ Maps to:** every authenticated call AjoPay's backend makes to Monnify.
+**✅ Maps to:** every authenticated call PayAjo's backend makes to Monnify.
 
 ---
 
@@ -141,8 +141,8 @@ Try it with an invalid account number too, and confirm you get a clean error res
 - **Body (raw JSON):**
 ```json
 {
-  "accountReference": "ajopay-member-001",
-  "accountName": "AjoPay - Chidi Okafor",
+  "accountReference": "payajo-member-001",
+  "accountName": "PayAjo - Chidi Okafor",
   "currencyCode": "NGN",
   "contractCode": "{{contract_code}}",
   "customerEmail": "chidi@example.com",
@@ -219,11 +219,11 @@ Two calls, in sequence.
   "amount": 10000.00,
   "customerName": "Chidi Okafor",
   "customerEmail": "chidi@example.com",
-  "paymentReference": "ajopay-direct-group042-cycle3-user017-{{$timestamp}}",
-  "paymentDescription": "AjoPay contribution — Group 042 cycle 3",
+  "paymentReference": "payajo-direct-group042-cycle3-user017-{{$timestamp}}",
+  "paymentDescription": "PayAjo contribution — Group 042 cycle 3",
   "currencyCode": "NGN",
   "contractCode": "{{contract_code}}",
-  "redirectUrl": "https://ajopay.app/contribute/confirm",
+  "redirectUrl": "https://payajo.app/contribute/confirm",
   "paymentMethods": ["ACCOUNT_TRANSFER"]
 }
 ```
@@ -237,7 +237,7 @@ Two calls, in sequence.
   "responseCode": "0",
   "responseBody": {
     "transactionReference": "MNFY|20260716|000090",
-    "paymentReference": "ajopay-direct-group042-cycle3-user017-...",
+    "paymentReference": "payajo-direct-group042-cycle3-user017-...",
     "checkoutUrl": "https://sandbox.sdk.monnify.com/checkout/MNFY|20260716|000090",
     "enabledPaymentMethod": ["ACCOUNT_TRANSFER"]
   }
@@ -284,8 +284,8 @@ Simulate the payment against this account exactly like §6 (Bank Simulator, exac
 ```json
 {
   "amount": 500.00,
-  "reference": "ajopay-payout-cycle1-{{$timestamp}}",
-  "narration": "AjoPay payout — Test Group — cycle 1",
+  "reference": "payajo-payout-cycle1-{{$timestamp}}",
+  "narration": "PayAjo payout — Test Group — cycle 1",
   "destinationBankCode": "058",
   "destinationAccountNumber": "0123456789",
   "destinationAccountName": "John Doe",
@@ -300,7 +300,7 @@ Simulate the payment against this account exactly like §6 (Bank Simulator, exac
 {
   "responseBody": {
     "amount": 500,
-    "reference": "ajopay-payout-cycle1-...",
+    "reference": "payajo-payout-cycle1-...",
     "status": "PENDING_AUTHORIZATION",
     "destinationAccountName": "John Doe",
     "destinationBankName": "GTBank",
@@ -375,7 +375,7 @@ Only test this once the core flow above is solid.
   "currencyCode": "NGN",
   "bankCode": "232",
   "accountNumber": "0068687503",
-  "email": "platform-fees@ajopay.app",
+  "email": "platform-fees@payajo.app",
   "defaultSplitPercentage": 2
 }
 ```
