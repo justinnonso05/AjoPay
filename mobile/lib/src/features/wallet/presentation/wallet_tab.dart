@@ -325,6 +325,20 @@ class _BalanceCard extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textMuted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Bank transfers carry a small fee, so what lands in your wallet may be slightly less than what you send.',
+                    style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 11.5, color: AppColors.textMuted, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

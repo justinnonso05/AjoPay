@@ -73,6 +73,11 @@ export default function DirectPaymentPage({ params }: { params: Promise<{ groupI
 
   if (!details) return null;
 
+  // What to actually send — includes Monnify's transfer fee. Falls back to
+  // `amount` for an old cached sessionStorage entry that predates this field.
+  const grossAmount = details.grossAmount ?? details.amount;
+  const feeAmount = Math.max(0, grossAmount - details.amount);
+
   if (confirmed) {
     return (
       <div className="mx-auto flex max-w-md flex-col items-center px-6 py-16 text-center">
@@ -112,7 +117,12 @@ export default function DirectPaymentPage({ params }: { params: Promise<{ groupI
 
       <div className="mt-5 rounded-card bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold text-brand-dark/50">Transfer exactly</p>
-        <p className="mt-1 font-display text-3xl font-extrabold text-brand-dark">₦{formatAmount(details.amount)}</p>
+        <p className="mt-1 font-display text-3xl font-extrabold text-brand-dark">₦{formatAmount(grossAmount)}</p>
+        {feeAmount > 0 && (
+          <p className="mt-1 text-xs text-brand-dark/40">
+            Includes a ₦{formatAmount(feeAmount)} transfer fee — ₦{formatAmount(details.amount)} lands in your group.
+          </p>
+        )}
 
         <div className="mt-5 space-y-3.5">
           <DetailRow label="Bank" value={details.bankName} />
@@ -137,8 +147,8 @@ export default function DirectPaymentPage({ params }: { params: Promise<{ groupI
       )}
 
       <p className="mt-5 text-sm leading-relaxed text-brand-dark/55">
-        This account is generated just for this contribution and can only be used once. Send exactly ₦{formatAmount(details.amount)} from any bank app
-        before it expires. We&apos;ll confirm automatically once it lands.
+        This account is generated just for this contribution and can only be used once. Send exactly ₦{formatAmount(grossAmount)} from any bank app before
+        it expires. We&apos;ll confirm automatically once it lands.
       </p>
 
       <div className="mt-6 flex items-center gap-2.5">

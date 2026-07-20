@@ -155,6 +155,10 @@ export default function WalletPage() {
             <Info size={14} className="mt-0.5 shrink-0 text-brand-dark/40" />
             <p className="text-xs leading-relaxed text-brand-dark/50">This is your personal account. Money sent here always goes to your AjoPay wallet, not a specific group.</p>
           </div>
+          <div className="mt-2.5 flex items-start gap-2">
+            <Info size={14} className="mt-0.5 shrink-0 text-brand-dark/40" />
+            <p className="text-xs leading-relaxed text-brand-dark/50">Bank transfers carry a small fee, so what lands in your wallet may be slightly less than what you send.</p>
+          </div>
         </Modal>
       )}
 

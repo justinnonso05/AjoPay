@@ -503,6 +503,10 @@ class DirectPaymentDetails {
   final String transactionReference;
   final String checkoutUrl;
   final double amount;
+  // What actually needs to be sent — includes Monnify's transfer fee.
+  // Falls back to [amount] if the backend ever omits it, so old clients
+  // (or a payment method with no fee) don't show a broken "₦0" figure.
+  final double grossAmount;
   final String accountNumber;
   final String bankName;
   final String bankCode;
@@ -515,6 +519,7 @@ class DirectPaymentDetails {
     required this.transactionReference,
     required this.checkoutUrl,
     required this.amount,
+    required this.grossAmount,
     required this.accountNumber,
     required this.bankName,
     required this.bankCode,
@@ -523,12 +528,17 @@ class DirectPaymentDetails {
     required this.accountDurationSeconds,
   });
 
+  /// How much of what's sent goes to fees, e.g. "128.21" on a ₦5,000 contribution.
+  double get feeAmount => (grossAmount - amount).clamp(0, double.infinity);
+
   factory DirectPaymentDetails.fromJson(Map<String, dynamic> json) {
+    final amount = (json['amount'] as num?)?.toDouble() ?? 0;
     return DirectPaymentDetails(
       paymentReference: json['paymentReference']?.toString() ?? '',
       transactionReference: json['transactionReference']?.toString() ?? '',
       checkoutUrl: json['checkoutUrl']?.toString() ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0,
+      amount: amount,
+      grossAmount: (json['grossAmount'] as num?)?.toDouble() ?? amount,
       accountNumber: json['accountNumber']?.toString() ?? '',
       bankName: json['bankName']?.toString() ?? '',
       bankCode: json['bankCode']?.toString() ?? '',

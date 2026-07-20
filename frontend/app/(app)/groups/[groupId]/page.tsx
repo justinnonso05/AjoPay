@@ -3,6 +3,7 @@
 import { BellRing, Calendar, Copy, Pencil, Share2, ShieldCheck, UserPlus, Users, Zap } from "lucide-react";
 import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
+import { BackButton } from "@/components/app/back-button";
 import { Modal } from "@/components/app/modal";
 import { StatusPill } from "@/components/app/status-pill";
 import { SuccessModal } from "@/components/app/success-modal";
@@ -85,7 +86,14 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
   };
 
   if (isLoading) return <div className="mx-auto max-w-3xl px-6 py-10"><div className="h-96 animate-pulse rounded-card bg-white" /></div>;
-  if (error || !group) return <div className="mx-auto max-w-3xl px-6 py-10 text-sm text-brand-dark/50">{error || "Couldn't load this group."}</div>;
+  if (error || !group) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-10">
+        <BackButton />
+        <p className="mt-3 text-sm text-brand-dark/50">{error || "Couldn't load this group."}</p>
+      </div>
+    );
+  }
 
   const currentMember = members.find((m) => m.user_id === currentUserId);
   // Prefer the backend's ground-truth `has_paid_current_cycle`; fall back
@@ -185,7 +193,8 @@ export default function GroupDetailsPage({ params }: { params: Promise<{ groupId
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8 sm:px-10 sm:py-10">
-      <div className="flex items-start justify-between gap-3">
+      <BackButton />
+      <div className="mt-3 flex items-start justify-between gap-3">
         <h1 className="font-display text-2xl font-bold text-brand-dark">{group.name}</h1>
         {isAdmin && (
           <button type="button" onClick={() => setShowEdit(true)} className="flex h-9 w-9 items-center justify-center rounded-full text-brand-dark/50 hover:bg-white">

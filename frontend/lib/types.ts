@@ -181,6 +181,9 @@ export type DirectPaymentDetails = {
   transactionReference: string;
   checkoutUrl: string;
   amount: number;
+  // What actually needs to be sent — includes Monnify's transfer fee.
+  // May be absent on an old cached response; callers should fall back to `amount`.
+  grossAmount?: number;
   accountNumber: string;
   bankName: string;
   bankCode: string;

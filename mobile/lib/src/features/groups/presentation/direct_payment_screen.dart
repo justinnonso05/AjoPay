@@ -149,7 +149,14 @@ class _DirectPaymentScreenState extends ConsumerState<DirectPaymentScreen> {
                   children: [
                     Text('Transfer exactly', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
-                    Text('₦${formatAmount(d.amount)}', style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                    Text('₦${formatAmount(d.grossAmount)}', style: TextStyle(fontFamily: 'SpaceGrotesk', fontSize: 28, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                    if (d.feeAmount > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Includes a ₦${formatAmount(d.feeAmount)} transfer fee — ₦${formatAmount(d.amount)} lands in your group.',
+                        style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 12, color: AppColors.textMuted),
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     _DetailRow(label: 'Bank', value: d.bankName),
                     const SizedBox(height: 14),
@@ -193,7 +200,7 @@ class _DirectPaymentScreenState extends ConsumerState<DirectPaymentScreen> {
               ],
               const SizedBox(height: 20),
               Text(
-                'This account is generated just for this contribution and can only be used once. Send exactly ₦${formatAmount(d.amount)} from any bank app before it expires. We\'ll confirm automatically once it lands.',
+                'This account is generated just for this contribution and can only be used once. Send exactly ₦${formatAmount(d.grossAmount)} from any bank app before it expires. We\'ll confirm automatically once it lands.',
                 style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13, color: AppColors.textSecondary, height: 1.5),
               ),
               const SizedBox(height: 24),
