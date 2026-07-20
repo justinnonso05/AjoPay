@@ -25,7 +25,7 @@ export function FeaturesGrid() {
       <StaggerGroup className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {FEATURES.map(({ icon: Icon, title, desc }) => (
           <StaggerItem key={title}>
-            <div className="group relative h-full overflow-hidden rounded-card border border-brand-dark/5 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(29,49,8,0.15)]">
+            <div className="group relative h-full cursor-pointer overflow-hidden rounded-card border border-brand-dark/5 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(29,49,8,0.15)]">
               {/* Diagonal color wipe: scales in from the bottom-left corner on hover. */}
               <span
                 aria-hidden

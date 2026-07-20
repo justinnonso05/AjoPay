@@ -28,7 +28,7 @@ export function ProblemSection() {
               {/* Diagonal color wipe: scales in from the bottom-left corner on hover. */}
               <span
                 aria-hidden
-                className="pointer-events-none absolute inset-0 origin-bottom-left scale-0 rounded-card bg-gradient-to-br from-brand-dark to-[#2a4611] transition-transform duration-500 ease-out group-hover:scale-[2.5]"
+                className="pointer-events-none absolute inset-0 origin-bottom-left scale-0 rounded-card bg-gradient-to-br from-brand-dark to-[#2a4611] transition-transform duration-300 ease-out group-hover:scale-[2.5]"
               />
               <div className="relative">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm transition-colors duration-300 group-hover:bg-white/15">
