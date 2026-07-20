@@ -79,11 +79,18 @@ async def update_group_service(admin_user: User, group_id: str, data: GroupUpdat
     # If the group is already ACTIVE, block changing financial/cadence details
     if group.status != GroupStatus.GATHERING:
         forbidden_fields = {'contribution_amount', 'cycle_frequency', 'payout_day_of_week', 'payout_day_of_month', 'payout_month', 'payout_time'}
-        if any(field in update_data for field in forbidden_fields):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot modify financial or cadence settings after the group has started."
-            )
+        for field in forbidden_fields:
+            if field in update_data:
+                new_val = update_data[field]
+                old_val = getattr(group, field)
+                # If value hasn't actually changed, just ignore it rather than throwing an error
+                if str(new_val) != str(old_val):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Cannot modify {field} after the group has started."
+                    )
+                # Pop it so we don't accidentally write it anyway
+                update_data.pop(field)
             
     for key, value in update_data.items():
         setattr(group, key, value)
@@ -284,10 +291,12 @@ async def send_targeted_invite_service(admin_user: User, group_id: str, email_or
     db.add(invite)
     if db_invite:
         db.delete(db_invite)
-        await db.commit()
     
     notif = Notification(user_id=target_user.id, title="Group Invite", message=f"You have been invited to join {group.name}.", type="group_invite")
     db.add(notif)
+    
+    await db.commit()
+    await db.refresh(invite)
     
     await send_group_invite_email(target_user.email, target_user.first_name, group.name, f"{admin_user.first_name} {admin_user.last_name}")
     return invite

@@ -105,13 +105,19 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
                 import asyncio
                 asyncio.create_task(send_contribution_confirmed_email(user.email, user.first_name, amount, group.name, cycle_number))
                 
-                # We need a system message too
-                from app.modules.group.service import post_system_message
-                asyncio.create_task(post_system_message(db, group_id, f"{user.first_name} contributed ₦{amount:,.2f} for cycle {cycle_number}."))
-                
-                # Recalculate risk score
-                from app.modules.user.risk_service import calculate_user_risk_score
-                asyncio.create_task(calculate_user_risk_score(user.id, db))
+                # Use a separate database session for background tasks to avoid concurrent session usage
+                from app.core.database import AsyncSessionLocal
+                async def _run_bg_tasks():
+                    async with AsyncSessionLocal() as bg_session:
+                        from app.modules.group.service import post_system_message
+                        await post_system_message(bg_session, group_id, f"{user.first_name} contributed ₦{amount:,.2f} for cycle {cycle_number}.")
+                        
+                        from app.modules.user.risk_service import calculate_user_risk_score
+                        await calculate_user_risk_score(user.id, bg_session)
+                        
+                import asyncio
+                asyncio.create_task(_run_bg_tasks())
+
     
     # Path A: Wallet Top-Up
     else:

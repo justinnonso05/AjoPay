@@ -12,3 +12,5 @@ class Notification(Base, UUIDMixin, TimestampMixin):
     
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     type: Mapped[str] = mapped_column(String(50), nullable=False) # payout_received, swap_request, delegation_approved, etc.
+    action_id: Mapped[str] = mapped_column(String, nullable=True) # ID of the related swap, delegation, or group
+

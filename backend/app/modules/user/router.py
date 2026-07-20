@@ -299,7 +299,7 @@ async def get_transaction_receipt(
         
     receipt_data = TransactionReceiptResponse(
         transaction_id=str(entry.id),
-        type=entry.type.value,
+        type=entry.type if isinstance(entry.type, str) else entry.type.value,
         amount=entry.amount,
         status="Successful", # Internal ledger entries are typically successful if they exist, except pending monnify webhooks (we can assume success for internal wallet ones)
         date=entry.created_at,
@@ -311,12 +311,23 @@ async def get_transaction_receipt(
     
     # Attempt to resolve better names for peer transfers
     from app.common.enums import WalletLedgerEntryType
-    if entry.type == WalletLedgerEntryType.TRANSFER_OUT or entry.type == WalletLedgerEntryType.TRANSFER_IN:
-        # We need the other party
-        # The narration contains "Transfer to UserID" or similar, but the entry doesn't strictly have a foreign key to the OTHER user. 
-        # For a robust system, we would add 'counterparty_id' to WalletLedgerEntry. For now, we rely on the narration string.
-        pass
-        
+    entry_type_str = entry.type if isinstance(entry.type, str) else entry.type.value
+    if entry_type_str == WalletLedgerEntryType.WALLET_TRANSFER_SENT.value or entry_type_str == WalletLedgerEntryType.WALLET_TRANSFER_RECEIVED.value:
+        # For new transactions, we store the counterparty ID in related_contribution_id
+        if entry.related_contribution_id:
+            cp_res = await db.execute(select(User).where(User.id == entry.related_contribution_id))
+            counterparty = cp_res.scalar_one_or_none()
+            if counterparty:
+                cp_name = f"{counterparty.first_name} {counterparty.last_name}"
+                if entry.amount < 0: # Sent
+                    receipt_data.recipient_name = cp_name
+                else: # Received
+                    receipt_data.sender_name = cp_name
+        else:
+            # Fallback for old transactions without the ID saved
+            receipt_data.recipient_name = "Peer User" if entry.amount < 0 else receipt_data.recipient_name
+            receipt_data.sender_name = "Peer User" if entry.amount > 0 else receipt_data.sender_name
+            
     return BaseResponse(
         success=True,
         message="Receipt fetched successfully",

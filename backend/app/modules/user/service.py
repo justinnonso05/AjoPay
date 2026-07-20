@@ -286,6 +286,7 @@ async def transfer_wallet_to_wallet(
         type=WalletLedgerEntryType.WALLET_TRANSFER_SENT,
         amount=-amount,
         narration=sent_narration,
+        related_contribution_id=recipient.id,
     )
     db.add(sent_entry)
 
@@ -299,6 +300,7 @@ async def transfer_wallet_to_wallet(
         type=WalletLedgerEntryType.WALLET_TRANSFER_RECEIVED,
         amount=amount,
         narration=recv_narration,
+        related_contribution_id=sender.id,
     )
     db.add(recv_entry)
 

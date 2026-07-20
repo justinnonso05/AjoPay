@@ -125,3 +125,65 @@ async def admin_approve_delegation(
         
     req = await approve_delegation(db, group, current_user, delegation_id, data.approve, data.reason)
     return BaseResponse(success=True, message="Delegation approval processed", data=req)
+
+from typing import List
+from app.modules.cycle.models import SwapRequest, DelegationRequest
+
+@router.get("/{group_id}/swaps/pending", response_model=BaseResponse[List[SwapRequestResponse]])
+async def get_pending_swaps(
+    group_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    group_res = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_res.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    from sqlalchemy import or_, and_
+    if current_user.id == group.admin_user_id:
+        # Admin sees both swaps waiting for their approval, and swaps targeting them personally
+        swaps_res = await db.execute(
+            select(SwapRequest).where(
+                SwapRequest.group_id == group_id,
+                or_(
+                    SwapRequest.status == "pending_admin_approval",
+                    and_(SwapRequest.status == "pending_counterpart", SwapRequest.target_member_id == current_user.id)
+                )
+            )
+        )
+    else:
+        # Regular user only sees swaps targeting them
+        swaps_res = await db.execute(
+            select(SwapRequest).where(
+                SwapRequest.group_id == group_id,
+                SwapRequest.status == "pending_counterpart",
+                SwapRequest.target_member_id == current_user.id
+            )
+        )
+    swaps = swaps_res.scalars().all()
+    return BaseResponse(success=True, message="Pending swaps fetched", data=swaps)
+
+@router.get("/{group_id}/delegations/pending", response_model=BaseResponse[List[DelegationRequestResponse]])
+async def get_pending_delegations(
+    group_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    group_res = await db.execute(select(Group).where(Group.id == group_id))
+    group = group_res.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+        
+    if current_user.id != group.admin_user_id:
+        raise HTTPException(status_code=403, detail="Only admins can view pending delegations for approval")
+        
+    dels_res = await db.execute(
+        select(DelegationRequest).where(
+            DelegationRequest.group_id == group_id,
+            DelegationRequest.status == "pending_admin_approval"
+        )
+    )
+    delegations = dels_res.scalars().all()
+    return BaseResponse(success=True, message="Pending delegations fetched", data=delegations)
+

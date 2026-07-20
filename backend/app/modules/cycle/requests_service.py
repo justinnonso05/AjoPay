@@ -68,11 +68,11 @@ async def initiate_delegation(db: AsyncSession, group: Group, cycle_number: int,
             assignment.delegation_id = req.id
             db.add(assignment)
             
-        notif = Notification(user_id=to_member_id, title="Delegation Received", message=f"A payout for cycle {cycle_number} was delegated to you.", type="delegation_approved")
+        notif = Notification(user_id=to_member_id, title="Delegation Received", message=f"A payout for cycle {cycle_number} was delegated to you.", type="delegation_approved", action_id=req.id)
         db.add(notif)
         await post_system_message(db, group.id, f"{user.first_name} delegated their cycle {cycle_number} payout.")
     else:
-        admin_notif = Notification(user_id=group.admin_user_id, title="Delegation Request", message=f"User {user.first_name} requested a delegation.", type="delegation_request")
+        admin_notif = Notification(user_id=group.admin_user_id, title="Delegation Request", message=f"User {user.first_name} requested a delegation.", type="delegation_request", action_id=req.id)
         db.add(admin_notif)
         
     await db.commit()
@@ -119,7 +119,8 @@ async def initiate_swap(db: AsyncSession, group: Group, user: User, target_membe
         user_id=target_member_id, 
         title="Swap Request", 
         message=f"{user.first_name} requested a cycle swap with you.", 
-        type="swap_request"
+        type="swap_request",
+        action_id=req.id
     )
     db.add(notif)
     
