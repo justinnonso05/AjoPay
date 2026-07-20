@@ -448,10 +448,25 @@ async def generate_direct_payment_service(user: User, group_id: str, db: AsyncSe
     # Format required by webhook: ajopay-direct_{group_id}_{cycle_number}_{user_id}_{timestamp}
     ref = f"ajopay-direct_{group.id}_{group.current_cycle_number}_{user.id}_{int(time.time())}"
     
+    # Calculate Gross Amount so Net equals contribution_amount
+    from app.core.config import settings
+    monnify_pct = settings.MONNIFY_COLLECTION_FEE_PERCENT / 100.0
+    ajo_pct = settings.AJOPAY_PLATFORM_FEE_PERCENT / 100.0
+    
+    # Try uncapped first
+    gross_amount = float(group.contribution_amount) / (1.0 - (monnify_pct + ajo_pct))
+    
+    # Check if this gross_amount causes Monnify fee to hit the cap
+    if gross_amount * monnify_pct > settings.MONNIFY_COLLECTION_FEE_CAP:
+        # Recalculate using the fixed cap instead of percentage
+        gross_amount = (float(group.contribution_amount) + settings.MONNIFY_COLLECTION_FEE_CAP) / (1.0 - ajo_pct)
+        
+    gross_amount = round(gross_amount, 2)
+    
     # 4. Call Monnify Step 1: Initialize Transaction
     try:
         init_res = await monnify_client.initialize_transaction(
-            amount=group.contribution_amount,
+            amount=gross_amount,
             customer_name=f"{user.first_name} {user.last_name}",
             customer_email=user.email,
             payment_reference=ref,
@@ -471,6 +486,7 @@ async def generate_direct_payment_service(user: User, group_id: str, db: AsyncSe
         "transactionReference": transaction_ref,
         "checkoutUrl": checkout_url,
         "amount": group.contribution_amount,
+        "grossAmount": gross_amount,
         "accountNumber": dva_res.get("accountNumber"),
         "bankName": dva_res.get("bankName"),
         "bankCode": dva_res.get("bankCode"),

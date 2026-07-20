@@ -67,11 +67,27 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
     
     if payment_reference.startswith("ajopay-direct_") or payment_reference.startswith("ajopay-direct-"):
             
+            # Calculate Fees (divide by 100 since configs are in percentages e.g. 1.5, 1)
+            monnify_fee = min(amount * (settings.MONNIFY_COLLECTION_FEE_PERCENT / 100), settings.MONNIFY_COLLECTION_FEE_CAP)
+            platform_fee = amount * (settings.AJOPAY_PLATFORM_FEE_PERCENT / 100)
+            total_fees = monnify_fee + platform_fee
+            net_amount = amount - total_fees
+            
+            # Record platform fee for direct contribution
+            fee_entry = WalletLedgerEntry(
+                user_id=user_id,
+                type=WalletLedgerEntryType.PLATFORM_FEE,
+                amount=-total_fees,
+                monnify_transaction_reference=f"fee-{monnify_reference}",
+                narration="Processing and Platform Fees for Direct Contribution"
+            )
+            db.add(fee_entry)
+            
             # Credit group ledger directly
             entry = GroupLedgerEntry(
                 group_id=group_id,
                 type=GroupLedgerEntryType.CONTRIBUTION_DIRECT,
-                amount=amount,
+                amount=net_amount,
                 member_id=user_id,
                 cycle_number=cycle_number,
                 monnify_transaction_reference=monnify_reference,
@@ -84,7 +100,7 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
             group_res = await db.execute(select(Group).where(Group.id == group_id))
             group = group_res.scalar_one_or_none()
             if group:
-                group.pool_balance = float(group.pool_balance) + amount
+                group.pool_balance = float(group.pool_balance) + net_amount
                 db.add(group)
             
             # User and Notification
@@ -97,7 +113,7 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
                 notif = Notification(
                     user_id=user.id,
                     title="Contribution Received",
-                    message=f"Your direct contribution of ₦{amount:,.2f} for cycle {cycle_number} was successful.",
+                    message=f"Your direct contribution of ₦{net_amount:,.2f} for cycle {cycle_number} was successful.",
                     type="group_contribution"
                 )
                 db.add(notif)
@@ -110,7 +126,7 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
                 async def _run_bg_tasks():
                     async with AsyncSessionLocal() as bg_session:
                         from app.modules.group.service import post_system_message
-                        await post_system_message(bg_session, group_id, f"{user.first_name} contributed ₦{amount:,.2f} for cycle {cycle_number}.")
+                        await post_system_message(bg_session, group_id, f"{user.first_name} contributed ₦{net_amount:,.2f} for cycle {cycle_number}.")
                         
                         from app.modules.user.risk_service import calculate_user_risk_score
                         await calculate_user_risk_score(user.id, bg_session)
