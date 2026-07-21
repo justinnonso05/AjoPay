@@ -9,6 +9,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Maintain strong references to background tasks to prevent garbage collection mid-execution
+_background_tasks = set()
+
 async def _send_notification_push_async(user_id: str, title: str, message: str, n_type: str, action_id: str):
     logger.info(f"Evaluating push notification for user {user_id} ({n_type})...")
     try:
@@ -46,7 +49,9 @@ async def create_and_dispatch_notification(db: AsyncSession, user_id: str, title
     try:
         loop = asyncio.get_running_loop()
         logger.info(f"Explicitly scheduling push notification for user {user_id} (type: {type})")
-        loop.create_task(_send_notification_push_async(user_id, title, message, type, action_id))
+        task = loop.create_task(_send_notification_push_async(user_id, title, message, type, action_id))
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
     except RuntimeError:
         logger.error("No running event loop found to schedule push notification.")
         

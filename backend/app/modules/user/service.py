@@ -327,12 +327,11 @@ async def transfer_wallet_to_wallet(
         message=f"You sent ₦{amount:,.2f} to {recipient.first_name} {recipient.last_name}.",
         type="wallet_transfer",
     )
-    recipient_notif = Notification(
-        user_id=recipient.id,
+    await create_and_dispatch_notification(db=db, user_id=recipient.id,
         title="Transfer Received",
         message=f"You received ₦{amount:,.2f} from {sender.first_name} {sender.last_name}.",
-        type="wallet_transfer",)
-    db.add(recipient_notif)
+        type="wallet_transfer",
+    )
 
     await db.commit()
     await db.refresh(sent_entry)

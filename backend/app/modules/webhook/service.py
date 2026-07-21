@@ -13,6 +13,9 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Maintain strong references to background tasks to prevent garbage collection mid-execution
+_background_tasks = set()
+
 async def verify_monnify_signature(request: Request, body_bytes: bytes) -> bool:
     monnify_signature = request.headers.get("monnify-signature")
     if not monnify_signature:
@@ -116,7 +119,9 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
                     type="group_contribution")
                 
                 import asyncio
-                asyncio.create_task(send_contribution_confirmed_email(user.email, user.first_name, amount, group.name, cycle_number))
+                t1 = asyncio.create_task(send_contribution_confirmed_email(user.email, user.first_name, amount, group.name, cycle_number))
+                _background_tasks.add(t1)
+                t1.add_done_callback(_background_tasks.discard)
                 
                 # Use a separate database session for background tasks to avoid concurrent session usage
                 from app.core.database import AsyncSessionLocal
@@ -129,7 +134,9 @@ async def process_monnify_webhook(payload: dict, db: AsyncSession):
                         await calculate_user_risk_score(user.id, bg_session)
                         
                 import asyncio
-                asyncio.create_task(_run_bg_tasks())
+                t2 = asyncio.create_task(_run_bg_tasks())
+                _background_tasks.add(t2)
+                t2.add_done_callback(_background_tasks.discard)
 
     
     # Path A: Wallet Top-Up

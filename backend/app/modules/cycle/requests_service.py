@@ -41,7 +41,10 @@ async def initiate_delegation(db: AsyncSession, group: Group, cycle_number: int,
     if assignment and assignment.status == "paid":
         raise HTTPException(status_code=400, detail="Cycle already paid")
         
-    status = "pending_admin_approval" if group.requires_approval_for_delegate else "auto_approved"
+    if group.requires_approval_for_delegate and user.id != group.admin_user_id:
+        status = "pending_admin_approval"
+    else:
+        status = "auto_approved"
     
     req = DelegationRequest(
         group_id=group.id,
@@ -148,7 +151,10 @@ async def respond_swap(db: AsyncSession, group: Group, user: User, swap_id: str,
         swap.status = "rejected"
         await create_and_dispatch_notification(db=db, user_id=swap.initiator_member_id, title="Swap Rejected", message=f"{user.first_name} rejected your swap request.", type="swap_rejected")
     else:
-        swap.status = "pending_admin_approval" if group.requires_approval_for_swap else "accepted"
+        if group.requires_approval_for_swap and user.id != group.admin_user_id and swap.initiator_member_id != group.admin_user_id:
+            swap.status = "pending_admin_approval"
+        else:
+            swap.status = "accepted"
         
         if swap.status == "accepted":
             # Execute swap
@@ -208,8 +214,7 @@ async def approve_delegation(db: AsyncSession, group: Group, admin_user: User, d
             db.add(assignment)
             
         await create_and_dispatch_notification(db=db, user_id=req.from_member_id, title="Delegation Approved", message="The admin approved your delegation.", type="delegation_approved")
-        notif2 = Notification(user_id=req.to_member_id, title="Delegation Received", message=f"A payout for cycle {req.cycle_number} was delegated to you.", type="delegation_approved")
-        db.add(notif2)
+        await create_and_dispatch_notification(db=db, user_id=req.to_member_id, title="Delegation Received", message=f"A payout for cycle {req.cycle_number} was delegated to you.", type="delegation_approved")
         await post_system_message(db, group.id, f"A delegation was approved for cycle {req.cycle_number}.")
         
     await db.commit()
@@ -230,8 +235,7 @@ async def approve_swap(db: AsyncSession, group: Group, admin_user: User, swap_id
         req.status = "rejected"
         msg = "The admin rejected the swap." + (f" Reason: {reason}" if reason else "")
         await create_and_dispatch_notification(db=db, user_id=req.initiator_member_id, title="Swap Rejected", message=msg, type="swap_rejected")
-        notif2 = Notification(user_id=req.target_member_id, title="Swap Rejected", message=msg, type="swap_rejected")
-        db.add(notif2)
+        await create_and_dispatch_notification(db=db, user_id=req.target_member_id, title="Swap Rejected", message=msg, type="swap_rejected")
     else:
         req.status = "accepted"
         import json
@@ -244,8 +248,7 @@ async def approve_swap(db: AsyncSession, group: Group, admin_user: User, swap_id
             db.add(group)
             
         await create_and_dispatch_notification(db=db, user_id=req.initiator_member_id, title="Swap Approved", message="The admin approved your swap.", type="swap_accepted")
-        notif2 = Notification(user_id=req.target_member_id, title="Swap Approved", message="The admin approved the swap.", type="swap_accepted")
-        db.add(notif2)
+        await create_and_dispatch_notification(db=db, user_id=req.target_member_id, title="Swap Approved", message="The admin approved the swap.", type="swap_accepted")
         await post_system_message(db, group.id, "A cycle swap was approved.")
         
     await db.commit()
