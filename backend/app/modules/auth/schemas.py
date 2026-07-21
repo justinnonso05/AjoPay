@@ -9,6 +9,7 @@ class SignupRequest(BaseModel):
     last_name: str
     password: str
     phone: Optional[str] = None
+    fcm_token: Optional[str] = None
 
     @field_validator("username")
     @classmethod
@@ -45,6 +46,7 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    fcm_token: Optional[str] = None
 
 
 class SetupPinRequest(BaseModel):

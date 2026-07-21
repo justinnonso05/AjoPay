@@ -634,6 +634,7 @@ async def respond_to_invite_service(user: User, invite_id: str, accept: bool, db
     invite.resolved_at = datetime.now(timezone.utc).replace(tzinfo=None)
     db.add(invite)
     await db.commit()
+    await db.refresh(invite)
     return invite
 
 async def rotate_invite_code_service(admin_user: User, group_id: str, db: AsyncSession):

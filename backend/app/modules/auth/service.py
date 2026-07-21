@@ -56,8 +56,10 @@ async def register_user(data: SignupRequest, db: AsyncSession) -> dict:
         wallet_balance=0.00,
         kyc_status=False,
         has_wallet=False,
+        fcm_token=data.fcm_token,
     )
     db.add(new_user)
+    await db.flush()
 
     # 4. Welcome notification
     welcome_notif = Notification(
@@ -92,6 +94,11 @@ async def login_user(data: LoginRequest, db: AsyncSession) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
+
+    if data.fcm_token and user.fcm_token != data.fcm_token:
+        user.fcm_token = data.fcm_token
+        db.add(user)
+        await db.commit()
 
     token = create_access_token(data={"sub": user.id})
     return {"user": user, "token": token}
