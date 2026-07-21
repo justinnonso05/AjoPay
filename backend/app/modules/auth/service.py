@@ -11,6 +11,7 @@ from app.core.security import (
 )
 from app.services.monnify import monnify_client
 from app.services.email import send_welcome_email
+from app.modules.notification.models import Notification
 from app.modules.otp.service import request_otp, verify_otp
 from .schemas import SignupRequest, LoginRequest
 
@@ -57,6 +58,16 @@ async def register_user(data: SignupRequest, db: AsyncSession) -> dict:
         has_wallet=False,
     )
     db.add(new_user)
+
+    # 4. Welcome notification
+    welcome_notif = Notification(
+        user_id=new_user.id,
+        title="Welcome to PayAjo",
+        message="Thank you for signing up. Enjoy our services!",
+        type="system"
+    )
+    db.add(welcome_notif)
+
     await db.commit()
     await db.refresh(new_user)
 
@@ -140,3 +151,26 @@ def check_pin(user: User, pin: str) -> None:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect transaction PIN"
         )
+
+
+async def request_password_reset(email: str, db: AsyncSession) -> None:
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        # Do not leak that the user doesn't exist
+        return
+    
+    await request_otp(user=user, purpose="password_reset", db=db)
+
+
+async def reset_password_with_otp(email: str, otp_code: str, new_password: str, db: AsyncSession) -> None:
+    result = await db.execute(select(User).where(User.email == email))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request")
+
+    await verify_otp(user=user, purpose="password_reset", code=otp_code, db=db)
+
+    user.password_hash = hash_password(new_password)
+    db.add(user)
+    await db.commit()

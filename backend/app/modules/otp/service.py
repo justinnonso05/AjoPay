@@ -26,7 +26,7 @@ async def request_otp(user: User, purpose: str, db: AsyncSession) -> str:
     Returns the raw OTP only for testing purposes in sandbox.
     In production the return value is discarded — the user gets it via email only.
     """
-    allowed_purposes = {"pin_reset", "bank_change"}
+    allowed_purposes = {"pin_reset", "bank_change", "password_reset"}
     if purpose not in allowed_purposes:
         raise ValueError(f"Invalid OTP purpose: {purpose}")
 
@@ -60,6 +60,7 @@ async def request_otp(user: User, purpose: str, db: AsyncSession) -> str:
     reason_labels = {
         "pin_reset": "reset your transaction PIN",
         "bank_change": "update your payout bank account",
+        "password_reset": "reset your account password",
     }
     await send_otp_email(
         to_email=user.email,

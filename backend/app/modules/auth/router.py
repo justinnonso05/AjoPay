@@ -8,11 +8,13 @@ from app.modules.user.models import User
 from .schemas import (
     SignupRequest, LoginRequest,
     SetupPinRequest, ResetPinRequest,
+    ForgotPasswordRequest, ResetPasswordRequest,
     TokenResponse,
 )
 from .service import (
     register_user, login_user,
     setup_user_pin, request_pin_reset, reset_pin_with_otp,
+    request_password_reset, reset_password_with_otp,
 )
 from app.modules.user.schemas import UserResponse
 
@@ -113,3 +115,40 @@ async def reset_pin(
     """
     await reset_pin_with_otp(current_user, data.otp_code, data.new_pin, db)
     return BaseResponse(success=True, message="Transaction PIN updated successfully", data=None)
+
+
+@router.post(
+    "/forgot-password",
+    response_model=BaseResponse[None],
+    summary="Request a password reset OTP (sends to registered email)",
+)
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Step 1 of password reset. Sends a 6-digit OTP to the user's registered email.
+    """
+    await request_password_reset(data.email, db)
+    return BaseResponse(
+        success=True,
+        message="If an account with that email exists, a verification code has been sent.",
+        data=None
+    )
+
+
+@router.post(
+    "/reset-password",
+    response_model=BaseResponse[None],
+    summary="Reset password using OTP from email",
+)
+async def reset_password(
+    data: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Step 2 of password reset. Verifies the OTP then sets the new password.
+    OTP expires after 10 minutes and can only be used once.
+    """
+    await reset_password_with_otp(data.email, data.otp_code, data.new_password, db)
+    return BaseResponse(success=True, message="Password updated successfully", data=None)

@@ -48,15 +48,24 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     errors = exc.errors()
     error_msgs = []
     for err in errors:
-        loc = ".".join([str(l) for l in err["loc"]])
+        loc_parts = [str(l) for l in err["loc"] if str(l) not in ("body", "query", "path")]
+        field_name = loc_parts[-1] if loc_parts else "Field"
+        
         msg = err["msg"]
-        error_msgs.append(f"{loc}: {msg}")
+        if msg.startswith("Value error, "):
+            error_msgs.append(msg[len("Value error, "):])
+        elif msg == "Field required":
+            error_msgs.append(f"{field_name.replace('_', ' ').capitalize()} is required.")
+        else:
+            error_msgs.append(f"{field_name}: {msg}")
+            
+    final_message = error_msgs[0] if len(error_msgs) == 1 else "; ".join(error_msgs)
     
     return JSONResponse(
         status_code=422,
         content=BaseResponse(
             success=False,
-            message=f"Validation error: {'; '.join(error_msgs)}",
+            message=final_message,
             data=None
         ).model_dump()
     )
