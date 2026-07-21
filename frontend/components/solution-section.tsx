@@ -7,7 +7,7 @@ import { Reveal } from "./reveal";
 
 const FEATURES = [
   { icon: Banknote, label: "Automatic contribution tracking" },
-  { icon: ShieldCheck, label: "Reserved group bank accounts" },
+  { icon: ShieldCheck, label: "Group pool ledgers" },
   { icon: Wallet, label: "Personal wallets" },
   { icon: ShieldCheck, label: "BVN verification" },
   { icon: MessageCircle, label: "Group chat" },
@@ -139,7 +139,7 @@ export function SolutionSection() {
             Meet PayAjo.
           </h2>
           <p className="mt-4 max-w-md text-base leading-relaxed text-brand-dark/60">
-            Every group gets a dedicated account, every member gets a wallet, and every contribution is tracked
+            Every member gets a personal wallet, every group gets a dedicated pool ledger, and every contribution is tracked
             automatically — so trust is backed by a system, not just a promise.
           </p>
 
