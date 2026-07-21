@@ -32,7 +32,6 @@ export default function LoginPage() {
       setSessionExpired(true);
     }
     if (new URLSearchParams(window.location.search).get("reset") === "1") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time hydration from the URL, not a render-loop
       setPasswordReset(true);
     }
   }, [setValue]);
