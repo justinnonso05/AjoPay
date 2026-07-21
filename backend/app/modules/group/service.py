@@ -211,6 +211,27 @@ async def join_group_service(user: User, invite_code: str, db: AsyncSession) -> 
         status=MembershipStatus.PENDING_APPROVAL
     )
     db.add(new_membership)
+    
+    from app.modules.notification.service import create_and_dispatch_notification
+    await create_and_dispatch_notification(
+        db=db,
+        user_id=user.id,
+        title="Invite Pending",
+        message=f"You have requested to join '{group.name}'. Waiting for admin approval.",
+        type="group_invite",
+        action_id=group.id
+    )
+    
+    # Notify the group admin
+    await create_and_dispatch_notification(
+        db=db,
+        user_id=group.admin_user_id,
+        title="New Join Request",
+        message=f"{user.first_name} has requested to join '{group.name}'.",
+        type="group_invite",
+        action_id=group.id
+    )
+    
     await db.commit()
     
     return group
@@ -252,6 +273,16 @@ async def approve_join_request_service(admin_user: User, group_id: str, member_u
         
         await send_group_join_approved_email(member_user.email, member_user.first_name, group.name)
         await post_system_message(db, group_id, f"{member_user.first_name} joined the group.")
+        
+        from app.modules.notification.service import create_and_dispatch_notification
+        await create_and_dispatch_notification(
+            db=db,
+            user_id=member_user_id,
+            title="Join Request Approved",
+            message=f"Your request to join the group '{group.name}' has been approved!",
+            type="group_invite",
+            action_id=group.id
+        )
     else:
         membership.status = MembershipStatus.REMOVED
         

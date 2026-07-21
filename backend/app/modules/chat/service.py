@@ -10,6 +10,32 @@ from app.core.websocket import manager
 
 logger = logging.getLogger(__name__)
 
+async def notify_group_members_of_new_message(db: AsyncSession, group_id: str, sender: User, message_preview: str, group_name: str = "your group"):
+    """
+    Sends a push notification to all active group members (except the sender) about a new message.
+    """
+    from app.modules.notification.service import create_and_dispatch_notification
+    
+    # Get all active members
+    result = await db.execute(
+        select(Membership.user_id)
+        .where(Membership.group_id == group_id)
+        .where(Membership.status == MembershipStatus.ACTIVE)
+        .where(Membership.user_id != sender.id)
+    )
+    member_ids = result.scalars().all()
+    
+    for member_id in member_ids:
+        await create_and_dispatch_notification(
+            db=db,
+            user_id=member_id,
+            title=f"New Message in {group_name}",
+            message=f"{sender.first_name}: {message_preview}",
+            type="group_chat_message",
+            action_id=group_id
+        )
+    await db.commit()
+
 async def post_system_message(db: AsyncSession, group_id: str, message_text: str):
     """
     Creates a system message in the DB and broadcasts it to connected WebSocket clients.

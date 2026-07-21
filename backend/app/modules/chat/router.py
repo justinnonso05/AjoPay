@@ -11,6 +11,7 @@ from app.modules.user.models import User
 from app.modules.chat.schemas import ChatMessageResponse, ChatMessageCreate
 from app.modules.chat.service import get_chat_history_service, verify_membership
 from app.modules.chat.models import ChatMessage
+from app.modules.group.models import Group
 from app.core.websocket import manager
 
 logger = logging.getLogger(__name__)
@@ -78,6 +79,13 @@ async def upload_chat_image(
         }
     })
     
+    group = await db.execute(select(Group).where(Group.id == group_id))
+    group_obj = group.scalar_one_or_none()
+    group_name = group_obj.name if group_obj else "your group"
+    
+    from app.modules.chat.service import notify_group_members_of_new_message
+    await notify_group_members_of_new_message(db, group_id, current_user, "📷 Image", group_name)
+    
     return chat_msg
 
 @router.websocket("/{group_id}/ws")
@@ -139,6 +147,13 @@ async def websocket_chat_endpoint(
                             "created_at": chat_msg.created_at.isoformat()
                         }
                     })
+                    
+                    group = await db.execute(select(Group).where(Group.id == group_id))
+                    group_obj = group.scalar_one_or_none()
+                    group_name = group_obj.name if group_obj else "your group"
+                    
+                    from app.modules.chat.service import notify_group_members_of_new_message
+                    await notify_group_members_of_new_message(db, group_id, user, text[:50] + "..." if len(text) > 50 else text, group_name)
                 
                 elif action == "edit":
                     msg_id = payload.get("message_id")
