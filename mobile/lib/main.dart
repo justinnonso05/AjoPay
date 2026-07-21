@@ -9,6 +9,8 @@ import 'src/core/storage/secure_storage_service.dart';
 import 'src/features/auth/data/user_repository.dart';
 import 'src/routing/app_router.dart';
 
+import 'src/core/services/notification_service.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -16,6 +18,7 @@ Future<void> main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    await NotificationService().initialize();
   } catch (e) {
     debugPrint("Firebase init note: $e");
   }

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/storage/secure_storage_service.dart';
 import 'user_profile.dart';
 
@@ -167,6 +168,7 @@ class UserProfileController extends Notifier<UserProfileState> {
       final profile = await ref.read(userRepositoryProvider).getMe();
       ref.read(currentUserProvider.notifier).state = profile;
       state = UserProfileState(profile: profile, isLoading: false);
+      NotificationService().syncTokenWithBackend(null);
     } on ApiException catch (e) {
       state = state.copyWith(isLoading: false, error: e.message);
     }
