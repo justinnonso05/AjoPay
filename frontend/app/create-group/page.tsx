@@ -41,6 +41,29 @@ export default function CreateGroupPage() {
 
   const cycleFrequency = watch("cycleFrequency");
   const payoutDayOfWeek = watch("payoutDayOfWeek");
+  const payoutMonth = watch("payoutMonth");
+  const payoutDayOfMonth = watch("payoutDayOfMonth");
+
+  // A native <input type="date"> needs a full date to operate on. 2024 is a
+  // leap year, so Feb 29 stays selectable too. Only month/day are ever read
+  // back out — the year here is just a vessel, never sent to the backend.
+  const REFERENCE_YEAR = 2024;
+  const payoutDateValue = (() => {
+    const month = cycleFrequency === "yearly" ? Number(payoutMonth) || 1 : Number(payoutMonth) || 1;
+    const day = Number(payoutDayOfMonth) || 1;
+    const daysInMonth = new Date(REFERENCE_YEAR, month, 0).getDate();
+    const safeDay = Math.min(Math.max(day, 1), daysInMonth);
+    return `${REFERENCE_YEAR}-${String(month).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`;
+  })();
+
+  const handlePayoutDateChange = (value: string) => {
+    if (!value) return;
+    const [, month, day] = value.split("-").map(Number);
+    if (cycleFrequency === "yearly") {
+      setValue("payoutMonth", String(month), { shouldValidate: true });
+    }
+    setValue("payoutDayOfMonth", String(day), { shouldValidate: true });
+  };
 
   const onSubmit = async (values: CreateGroupFormValues) => {
     if (values.cycleFrequency === "weekly" && values.payoutDayOfWeek === undefined) {
@@ -134,22 +157,14 @@ export default function CreateGroupPage() {
         )}
 
         {(cycleFrequency === "monthly" || cycleFrequency === "yearly") && (
-          <div className="flex gap-3">
-            {cycleFrequency === "yearly" && (
-              <TextField
-                label="Payout Month (1-12)"
-                type="number"
-                placeholder="1"
-                {...register("payoutMonth")}
-              />
-            )}
-            <TextField
-              label="Payout Day of Month (1-28)"
-              type="number"
-              placeholder="1"
-              {...register("payoutDayOfMonth")}
-            />
-          </div>
+          // A real calendar instead of raw number inputs — a 30-day month
+          // simply doesn't offer the 31st, no separate validation needed.
+          <TextField
+            label={cycleFrequency === "yearly" ? "Payout Date" : "Payout Day of Month"}
+            type="date"
+            value={payoutDateValue}
+            onChange={(e) => handlePayoutDateChange(e.target.value)}
+          />
         )}
 
         <TextField label="Payout Time (optional)" type="time" {...register("payoutTime")} />
