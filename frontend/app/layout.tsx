@@ -33,9 +33,10 @@ export const metadata: Metadata = {
     siteName: "PayAjo",
     images: [
       {
-        url: "/images/og-banner.png",
-        width: 1400,
-        height: 800,
+        url: "/images/og-banner.jpg",
+        width: 1200,
+        height: 675,
+        type: "image/jpeg",
         alt: "PayAjo — Save Together. Grow Together.",
       },
     ],
@@ -47,7 +48,7 @@ export const metadata: Metadata = {
     title: "PayAjo — Save Together. Grow Together.",
     description:
       "A smarter way to run your Ajo or Esusu with friends, family, coworkers, and communities.",
-    images: ["/images/og-banner.png"],
+    images: ["/images/og-banner.jpg"],
   },
   icons: {
     icon: [
