@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'src/app.dart';
 import 'src/core/network/api_client.dart';
 import 'src/core/storage/secure_storage_service.dart';
@@ -9,6 +11,14 @@ import 'src/routing/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint("Firebase init note: $e");
+  }
 
   try {
     await dotenv.load(fileName: ".env");

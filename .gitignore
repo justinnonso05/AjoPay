@@ -1,0 +1,8 @@
+# Ignore secret Firebase service account keys
+*-firebase-adminsdk-*.json
+serviceAccountKey.json
+service-account*.json
+
+# Environment variables
+.env
+.env*.local

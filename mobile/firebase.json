@@ -1,0 +1,22 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "agrohive-1107d",
+          "appId": "1:225154355801:android:4048ee1da57f2b9f779748",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "agrohive-1107d",
+          "configurations": {
+            "android": "1:225154355801:android:4048ee1da57f2b9f779748",
+            "web": "1:225154355801:web:05af83a675eba956779748"
+          }
+        }
+      }
+    }
+  }
+}

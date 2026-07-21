@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "225154355801",
+    "project_id": "agrohive-1107d",
+    "storage_bucket": "agrohive-1107d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225154355801:android:4048ee1da57f2b9f779748",
+        "android_client_info": {
+          "package_name": "com.example.payajo"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "225154355801-pnrnimkv092q53tvcafi0jojd4lfh9v8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDuul2DDTm0RqE8mpyRx8Y1-OxYBl-48bQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "225154355801-pnrnimkv092q53tvcafi0jojd4lfh9v8.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "225154355801-r5kttd658m7pv15po2p8od7tcd71gfs6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.payajo"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
