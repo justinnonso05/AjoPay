@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { PlayCircle } from "lucide-react";
 import Link from "next/link";
+import { DownloadButton } from "./download-button";
 import { PhoneMockup } from "./phone-mockup";
 
 export function Hero() {
@@ -59,13 +60,7 @@ export function Hero() {
             >
               Get Started
             </Link>
-            <a
-              href="/downloads/PayAjo.apk"
-              download="PayAjo.apk"
-              className="rounded-full border border-brand-dark/15 bg-white/80 px-7 py-3.5 text-sm font-bold text-brand-dark shadow-sm backdrop-blur transition-transform hover:scale-105 active:scale-95"
-            >
-              Download App (APK)
-            </a>
+            <DownloadButton variant="hero" label="Download App (APK)" className="py-3.5 px-7" />
             <a
               href="#how-it-works"
               className="inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-sm font-bold text-brand-dark transition-colors hover:text-brand-accent"

@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Download, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { DownloadButton } from "./download-button";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -54,14 +55,7 @@ export function Navbar() {
           <Link href="/login" className="text-sm font-semibold text-brand-dark/70 transition-colors hover:text-brand-dark">
             Sign In
           </Link>
-          <a
-            href="/downloads/PayAjo.apk"
-            download="PayAjo.apk"
-            className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-brand-dark shadow-[0_4px_16px_rgba(172,236,135,0.35)] transition-transform hover:scale-105 active:scale-95"
-          >
-            <Download size={16} />
-            <span>Download App</span>
-          </a>
+          <DownloadButton />
         </div>
 
         <button
@@ -98,15 +92,7 @@ export function Navbar() {
                 <Link href="/login" onClick={() => setMenuOpen(false)} className="py-1 text-center text-sm font-semibold text-brand-dark/70">
                   Sign In
                 </Link>
-                <a
-                  href="/downloads/PayAjo.apk"
-                  download="PayAjo.apk"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2.5 text-center text-sm font-bold text-brand-dark"
-                >
-                  <Download size={16} />
-                  <span>Download App</span>
-                </a>
+                <DownloadButton onClick={() => setMenuOpen(false)} className="w-full" />
               </div>
             </div>
           </motion.div>
