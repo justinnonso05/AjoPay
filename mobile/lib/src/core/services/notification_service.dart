@@ -86,29 +86,43 @@ class NotificationService {
     await _localNotifications.initialize(
       const InitializationSettings(android: androidInit, iOS: iosInit),
     );
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_kAndroidChannel);
+    final androidPlugin = _localNotifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(_kAndroidChannel);
+    // flutter_local_notifications gates POST_NOTIFICATIONS on Android 13+
+    // through its own permission call — separate from FirebaseMessaging's,
+    // even though both map to the same OS permission. Without this, `.show()`
+    // can silently no-op on some Android versions even after FCM's own
+    // requestPermission() reported "authorized".
+    final granted = await androidPlugin?.requestNotificationsPermission();
+    debugPrint('flutter_local_notifications permission granted: $granted');
   }
 
-  void _showLocalNotification(RemoteMessage message) {
+  Future<void> _showLocalNotification(RemoteMessage message) async {
     final notification = message.notification;
-    if (notification == null) return;
-    _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _kAndroidChannel.id,
-          _kAndroidChannel.name,
-          channelDescription: _kAndroidChannel.description,
-          importance: Importance.high,
-          priority: Priority.high,
+    if (notification == null) {
+      debugPrint('Skipped local notification: message had no `notification` payload.');
+      return;
+    }
+    try {
+      await _localNotifications.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _kAndroidChannel.id,
+            _kAndroidChannel.name,
+            channelDescription: _kAndroidChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+          iOS: const DarwinNotificationDetails(),
         ),
-        iOS: const DarwinNotificationDetails(),
-      ),
-    );
+      );
+      debugPrint('Local notification shown for foreground message.');
+    } catch (e) {
+      debugPrint('Failed to show local notification: $e');
+    }
   }
 
   /// Sends the current FCM token to the backend API.
