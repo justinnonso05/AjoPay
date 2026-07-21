@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Bell, Clock, Hash, MessageCircle, Repeat, Send, User, Wallet, Zap } from "lucide-react";
+import { ArrowLeftRight, Bell, Clock, Hash, MessageCircle, Repeat, Send, Sparkles, User, Wallet, Zap } from "lucide-react";
 import { Reveal, StaggerGroup, StaggerItem } from "./reveal";
 
 const FEATURES = [
@@ -12,6 +12,7 @@ const FEATURES = [
   { icon: Send, title: "Payout Delegation", desc: "Send your payout directly to a friend or family member's wallet." },
   { icon: Zap, title: "Automated Payouts", desc: "Instant bank disbursement as soon as a round completes — zero manual chasing." },
   { icon: Repeat, title: "Auto-Debit", desc: "Enable automatic wallet debiting before deadlines so no member defaults." },
+  { icon: Sparkles, title: "Gemini AI Pidgin Reminders", desc: "Friendly automated reminders powered by Gemini AI in local Pidgin English for market traders & everyday savers." },
 ];
 
 export function FeaturesGrid() {
