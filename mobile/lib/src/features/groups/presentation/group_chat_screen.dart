@@ -270,7 +270,7 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.edit_outlined, color: AppColors.textPrimary),
-              title: const Text('Edit'),
+              title: const Text('Edit', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _startEdit(message);

@@ -580,6 +580,8 @@ async def get_group_members_service(group_id: str, db: AsyncSession):
             "risk_factors": usr.risk_factors,
             "has_paid_current_cycle": usr.id in paid_member_ids,
             "payout_position": payout_position,
+            "auto_debit_enabled": mem.auto_debit_enabled,
+            "auto_debit_days_before": mem.auto_debit_days_before,
         })
     return members
 
