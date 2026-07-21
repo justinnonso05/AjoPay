@@ -23,6 +23,8 @@ export default function GroupChatPage({ params }: { params: Promise<{ groupId: s
   const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [pendingImage, setPendingImage] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [pendingCaption, setPendingCaption] = useState("");
 
   const socketRef = useRef<WebSocket | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -130,18 +132,35 @@ export default function GroupChatPage({ params }: { params: Promise<{ groupId: s
     setDraft("");
   };
 
-  const handleImageSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    // Confirm-before-send, like WhatsApp — shows a preview with a caption
+    // field instead of uploading the moment a file is picked.
+    setPendingImage({ file, previewUrl: URL.createObjectURL(file) });
+    setPendingCaption(draft.trim());
+    setDraft("");
+  };
+
+  const cancelSendImage = () => {
+    if (pendingImage) URL.revokeObjectURL(pendingImage.previewUrl);
+    setPendingImage(null);
+    setPendingCaption("");
+  };
+
+  const confirmSendImage = async () => {
+    if (!pendingImage) return;
     setIsUploadingImage(true);
     setImageError(null);
     try {
       // The backend broadcasts the resulting message over the WebSocket to
       // every connected client, including the sender — same "wait for the
       // echo" pattern as text messages, so this just needs to succeed.
-      await api.postFile(endpoints.chatImage(groupId), file, authHeaders(), draft.trim() ? { message: draft.trim() } : undefined);
-      setDraft("");
+      await api.postFile(endpoints.chatImage(groupId), pendingImage.file, authHeaders(), pendingCaption.trim() ? { message: pendingCaption.trim() } : undefined);
+      URL.revokeObjectURL(pendingImage.previewUrl);
+      setPendingImage(null);
+      setPendingCaption("");
     } catch (err) {
       setImageError(err instanceof ApiError ? err.message : "Could not send that image. Please try again.");
     } finally {
@@ -192,25 +211,53 @@ export default function GroupChatPage({ params }: { params: Promise<{ groupId: s
               );
             }
 
+            const hasImage = !!message.image_url && !message.is_deleted;
+            const hasCaption = !!message.message;
+            const timestamp = (
+              <span className="flex items-center gap-1.5">
+                <span className="text-[10px] text-brand-dark/40">{formatTime(message.created_at)}</span>
+                {message.is_edited && !message.is_deleted && <span className="text-[10px] italic text-brand-dark/40">· edited</span>}
+              </span>
+            );
+
+            // Images render edge-to-edge inside the bubble (like WhatsApp)
+            // instead of sitting padded inside the colored bubble — the
+            // color only wraps a caption, and the timestamp overlays the
+            // photo directly when there isn't one.
             return (
               <div key={message.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                 <button
                   type="button"
                   onClick={() => isMe && !message.is_deleted && setActionsFor(message)}
-                  className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-left shadow-sm ${
-                    isMe ? "rounded-br-md bg-brand" : "rounded-bl-md bg-white"
-                  }`}
+                  className={`max-w-[75%] overflow-hidden rounded-2xl text-left shadow-sm ${
+                    hasImage ? "" : "px-4 py-2.5"
+                  } ${isMe ? "rounded-br-md" : "rounded-bl-md"} ${isMe && !hasImage ? "bg-brand" : ""} ${!isMe && !hasImage ? "bg-white" : ""}`}
                 >
-                  {!isMe && <p className="mb-0.5 text-xs font-bold text-brand-accent">{senderName ? `${senderName.first_name} ${senderName.last_name}`.trim() : "Member"}</p>}
-                  {message.image_url && !message.is_deleted && (
-                    // eslint-disable-next-line @next/next/no-img-element -- remote Cloudinary URL, not a static/local asset
-                    <img src={message.image_url} alt="" className="mb-1.5 max-h-64 w-full rounded-xl object-cover" />
+                  {!isMe && hasImage && (
+                    <p className="px-2.5 pb-1 pt-2 text-xs font-bold text-brand-accent">{senderName ? `${senderName.first_name} ${senderName.last_name}`.trim() : "Member"}</p>
                   )}
-                  {message.message && <p className={`text-sm ${message.is_deleted ? "italic text-brand-dark/40" : "text-brand-dark"}`}>{message.message}</p>}
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <span className="text-[10px] text-brand-dark/40">{formatTime(message.created_at)}</span>
-                    {message.is_edited && !message.is_deleted && <span className="text-[10px] italic text-brand-dark/40">· edited</span>}
-                  </div>
+                  {!isMe && !hasImage && <p className="mb-0.5 text-xs font-bold text-brand-accent">{senderName ? `${senderName.first_name} ${senderName.last_name}`.trim() : "Member"}</p>}
+                  {hasImage && (
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- remote Cloudinary URL, not a static/local asset */}
+                      <img src={message.image_url!} alt="" className="h-56 w-56 object-cover" />
+                      {!hasCaption && (
+                        <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/45 px-1.5 py-0.5 text-white">{timestamp}</span>
+                      )}
+                    </div>
+                  )}
+                  {hasImage && hasCaption && (
+                    <div className={`px-3 py-2 ${isMe ? "bg-brand" : "bg-white"}`}>
+                      <p className="text-sm text-brand-dark">{message.message}</p>
+                      <div className="mt-1">{timestamp}</div>
+                    </div>
+                  )}
+                  {!hasImage && (
+                    <>
+                      {message.message && <p className={`text-sm ${message.is_deleted ? "italic text-brand-dark/40" : "text-brand-dark"}`}>{message.message}</p>}
+                      <div className="mt-1">{timestamp}</div>
+                    </>
+                  )}
                 </button>
               </div>
             );
@@ -266,6 +313,36 @@ export default function GroupChatPage({ params }: { params: Promise<{ groupId: s
             <button type="button" onClick={() => confirmDelete(actionsFor)} className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 hover:bg-soft-gray">
               <Trash2 size={16} />
               Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pendingImage && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <button type="button" onClick={cancelSendImage} className="flex h-11 w-11 items-center justify-center text-white">
+            <X size={20} />
+          </button>
+          <div className="flex flex-1 items-center justify-center overflow-hidden p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview, not a static/remote asset */}
+            <img src={pendingImage.previewUrl} alt="" className="max-h-full max-w-full object-contain" />
+          </div>
+          {imageError && <p className="px-4 pb-2 text-center text-sm font-semibold text-red-400">{imageError}</p>}
+          <div className="flex items-center gap-2 p-3">
+            <input
+              value={pendingCaption}
+              onChange={(e) => setPendingCaption(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && confirmSendImage()}
+              placeholder="Add a caption…"
+              className="flex-1 rounded-full bg-white/10 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/40"
+            />
+            <button
+              type="button"
+              onClick={confirmSendImage}
+              disabled={isUploadingImage}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-brand-dark disabled:opacity-50"
+            >
+              {isUploadingImage ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-dark/30 border-t-brand-dark" /> : <Send size={16} />}
             </button>
           </div>
         </div>

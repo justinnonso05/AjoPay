@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -188,10 +189,21 @@ class _GroupChatScreenState extends ConsumerState<GroupChatScreen> {
     }
     if (picked == null || !mounted) return;
 
+    final bytes = await picked.readAsBytes();
+    if (!mounted) return;
+
+    // Shows a WhatsApp-style full-screen preview with a caption field before
+    // actually uploading — returns null if the user cancels, otherwise the
+    // (possibly empty) caption they typed.
+    final caption = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _ImagePreviewDialog(bytes: bytes, initialCaption: _controller.text.trim()),
+    );
+    if (caption == null || !mounted) return;
+
     setState(() => _isSendingImage = true);
     try {
-      final bytes = await picked.readAsBytes();
-      final caption = _controller.text.trim();
       await ref.read(chatRepositoryProvider).sendImage(
             widget.groupId,
             bytes: bytes,
@@ -426,70 +438,128 @@ class _MessageBubble extends StatelessWidget {
       );
     }
 
+    final hasImage = message.imageUrl != null && !message.isDeleted;
+    final hasCaption = message.message.isNotEmpty;
+    final bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(16),
+      topRight: const Radius.circular(16),
+      bottomLeft: Radius.circular(isMe ? 16 : 4),
+      bottomRight: Radius.circular(isMe ? 4 : 16),
+    );
+
+    Widget timestampRow({required Color color}) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(formatTime(message.createdAt), style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 10, color: color)),
+          if (message.isEdited && !message.isDeleted) ...[
+            const SizedBox(width: 4),
+            Text('· edited', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 10, color: color, fontStyle: FontStyle.italic)),
+          ],
+        ],
+      );
+    }
+
+    // Images render edge-to-edge inside the bubble (like WhatsApp) instead of
+    // sitting padded inside the colored bubble — the color only wraps a
+    // caption, and the timestamp overlays the photo directly when there isn't one.
+    Widget content;
+    if (hasImage) {
+      content = ClipRRect(
+        borderRadius: bubbleRadius,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!isMe)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+                child: Text(senderName ?? 'Member', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.accentGreen)),
+              ),
+            GestureDetector(
+              onTap: () => _showFullImage(context, message.imageUrl!),
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Image.network(
+                    message.imageUrl!,
+                    width: 220,
+                    height: 220,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const SizedBox(width: 220, height: 220, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGreen)));
+                    },
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(width: 220, height: 220, child: Center(child: Icon(Icons.broken_image_outlined, color: AppColors.textMuted))),
+                  ),
+                  if (!hasCaption)
+                    Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(8)),
+                        child: timestampRow(color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (hasCaption)
+              Container(
+                width: 220,
+                color: isMe ? AppColors.brandGreen : AppColors.surface,
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(message.message, style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 13.5, color: AppColors.textPrimary)),
+                    const SizedBox(height: 4),
+                    timestampRow(color: AppColors.textMuted),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+    } else {
+      content = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isMe) Text(senderName ?? 'Member', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.accentGreen)),
+            if (!isMe) const SizedBox(height: 2),
+            Text(
+              message.message,
+              style: TextStyle(fontFamily: 'PlusJakartaSans',
+                fontSize: 13.5,
+                color: message.isDeleted ? AppColors.textMuted : AppColors.textPrimary,
+                fontStyle: message.isDeleted ? FontStyle.italic : FontStyle.normal,
+              ),
+            ),
+            const SizedBox(height: 4),
+            timestampRow(color: AppColors.textMuted),
+          ],
+        ),
+      );
+    }
+
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: onLongPress,
         child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
-        decoration: BoxDecoration(
-          color: isMe ? AppColors.brandGreen : AppColors.surface,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(isMe ? 16 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 16),
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+          decoration: BoxDecoration(
+            color: hasImage ? null : (isMe ? AppColors.brandGreen : AppColors.surface),
+            borderRadius: bubbleRadius,
+            boxShadow: cardShadow(opacity: 0.03),
           ),
-          boxShadow: cardShadow(opacity: 0.03),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!isMe) Text(senderName ?? 'Member', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.accentGreen)),
-            if (!isMe) const SizedBox(height: 2),
-            if (message.imageUrl != null && !message.isDeleted) ...[
-              GestureDetector(
-                onTap: () => _showFullImage(context, message.imageUrl!),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    message.imageUrl!,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) {
-                      if (progress == null) return child;
-                      return const SizedBox(width: 200, height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGreen)));
-                    },
-                    errorBuilder: (context, error, stackTrace) =>
-                        const SizedBox(width: 200, height: 120, child: Center(child: Icon(Icons.broken_image_outlined, color: AppColors.textMuted))),
-                  ),
-                ),
-              ),
-              if (message.message.isNotEmpty) const SizedBox(height: 8),
-            ],
-            if (message.message.isNotEmpty)
-              Text(
-                message.message,
-                style: TextStyle(fontFamily: 'PlusJakartaSans',
-                  fontSize: 13.5,
-                  color: message.isDeleted ? AppColors.textMuted : AppColors.textPrimary,
-                  fontStyle: message.isDeleted ? FontStyle.italic : FontStyle.normal,
-                ),
-              ),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(formatTime(message.createdAt), style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 10, color: AppColors.textMuted)),
-                if (message.isEdited && !message.isDeleted) ...[
-                  const SizedBox(width: 4),
-                  Text('· edited', style: TextStyle(fontFamily: 'PlusJakartaSans', fontSize: 10, color: AppColors.textMuted, fontStyle: FontStyle.italic)),
-                ],
-              ],
-            ),
-          ],
-        ),
+          child: content,
         ),
       ),
     );
@@ -583,6 +653,82 @@ class _Composer extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Full-screen "confirm before sending" preview shown after picking an image
+/// — mirrors WhatsApp's attach flow instead of uploading immediately.
+class _ImagePreviewDialog extends StatefulWidget {
+  final Uint8List bytes;
+  final String initialCaption;
+
+  const _ImagePreviewDialog({required this.bytes, required this.initialCaption});
+
+  @override
+  State<_ImagePreviewDialog> createState() => _ImagePreviewDialogState();
+}
+
+class _ImagePreviewDialogState extends State<_ImagePreviewDialog> {
+  late final TextEditingController _captionController = TextEditingController(text: widget.initialCaption);
+
+  @override
+  void dispose() {
+    _captionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black,
+      child: SafeArea(
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: Image.memory(widget.bytes, fit: BoxFit.contain),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _captionController,
+                      style: const TextStyle(fontFamily: 'PlusJakartaSans', color: Colors.white, fontSize: 13.5),
+                      decoration: InputDecoration(
+                        hintText: 'Add a caption…',
+                        hintStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+                        filled: true,
+                        fillColor: Colors.white12,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: const BoxDecoration(color: AppColors.brandGreen, shape: BoxShape.circle),
+                    child: IconButton(
+                      icon: const Icon(Icons.send_rounded, color: AppColors.darkGreen, size: 20),
+                      onPressed: () => Navigator.pop(context, _captionController.text.trim()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
