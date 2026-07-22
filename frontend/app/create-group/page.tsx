@@ -92,7 +92,9 @@ export default function CreateGroupPage() {
         },
         authHeaders(),
       );
-      router.push("/pin-setup");
+      const me = await api.get(endpoints.me, authHeaders());
+      const profile = me.data as { has_pin?: boolean } | undefined;
+      router.push(profile?.has_pin ? "/home" : "/pin-setup");
     } catch (err) {
       setServerError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     }
